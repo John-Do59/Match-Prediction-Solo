@@ -128,7 +128,7 @@ Pour ce projet, utilise ces commandes dans ton terminal (à la racine du projet)
 ./scripts/run_docker_env.sh
 ```
 
-*Cette commande fait tout : Réseau -> BDD -> Build Images -> Lancement Conteneurs.*
+*Cette commande fait tout : Réseau -> BDD -> Build Images -> Lancement Conteneurs -> Migrations -> Seeds -> Ingestion & Entraînement ML.*
 
 ### Tout arrêter et nettoyer
 
@@ -140,17 +140,18 @@ Pour ce projet, utilise ces commandes dans ton terminal (à la racine du projet)
 
 ### Inspecter ce qui se passe
 
-- **Voir les conteneurs actifs** : `docker ps`
-- **Voir TOUS les conteneurs (même arrêtés)** : `docker ps -a`
-- **Voir les images créées** : `docker images`
-- **Voir les logs d'un service (ex: l'API App)** : `docker logs -f api-app`
-- **Entrer dans le conteneur de la BDD** : `docker exec -it postgres-db psql -U amaury -d footballapp_db`
+1. Identifie les ports occupés : `lsof -Pi :5432 -sTCP:LISTEN -t` (remplace 5432 par le port concerné).
+2. Tue le processus : `kill -9 <PID>` (où <PID> est le numéro retourné).
+3. Relance le script.
+
+-  **Vérifie les logs** : `docker logs api-app` ou `docker logs api-ml`.
+-  **Vérifie la BDD** : `docker exec -it postgres-db psql -U amaury -d footballapp_db`.
+-  **Relance propre** : Exécute `./scripts/docker_clean.sh` avant de retenter `./scripts/run_docker_env.sh`.
+-  **Nettoyage total** : `docker system prune -a --volumes` (Attention : supprime TOUTES les images inutilisées sur ton Mac).
 
 ---
 
 ## 🧪 7. Tests Automatisés en Docker
-
-Désormais, tu peux valider la stabilité de l'application directement dans son environnement de conteneur.
 
 ### Pourquoi tester dans Docker ?
 
@@ -162,9 +163,11 @@ Désormais, tu peux valider la stabilité de l'application directement dans son 
 1. Le script `run_docker_env.sh` crée automatiquement une base de données dédiée aux tests nommée `footballapp_app_test`.
 2. Le fichier `FastAPI_App/tests/conftest.py` détecte s'il est dans Docker et bascule sur cette base de test.
 3. Pour lancer les tests :
+
    ```bash
    docker exec api-app pytest
    ```
+
 
 ### Que vérifier en cas d'erreur ?
 

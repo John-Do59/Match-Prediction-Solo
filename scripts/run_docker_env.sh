@@ -25,7 +25,7 @@ echo -e "${GREEN}[1/6] Création du réseau 'match-network'...${NC}"
 docker network create match-network 2>/dev/null || echo "Le réseau existe déjà."
 
 # 2. Lancement de PostgreSQL avec Volume pour la persistance
-echo -e "${GREEN}[2/5] Lancement du conteneur PostgreSQL...${NC}"
+echo -e "${GREEN}[2/7] Lancement du conteneur PostgreSQL...${NC}"
 docker run -d \
   --name postgres-db \
   --network match-network \
@@ -47,13 +47,13 @@ docker exec -i postgres-db psql -U amaury -d footballapp_db -tc "SELECT 1 FROM p
 docker exec -i postgres-db psql -U amaury -d footballapp_db -c "CREATE DATABASE footballapp_app_test;"
 
 # 3. Build des images
-echo -e "${GREEN}[3/5] Build des images (Backend & Frontend)...${NC}"
+echo -e "${GREEN}[3/7] Build des images (Backend & Frontend)...${NC}"
 docker build -t match-api-app -f FastAPI_App/Dockerfile .
 docker build -t match-api-ml -f FastAPI_ML/Dockerfile .
 docker build -t match-frontend -f match_prediction_app-front/Dockerfile .
 
 # 4. Lancement des Backend
-echo -e "${GREEN}[4/5] Lancement des services Backend...${NC}"
+echo -e "${GREEN}[4/7] Lancement des services Backend...${NC}"
 
 # API Application (Port 8000)
 docker run -d \
@@ -74,7 +74,7 @@ docker run -d \
   match-api-ml
 
 # 5. Lancement du Frontend
-echo -e "${GREEN}[5/5] Lancement du Frontend Vue.js...${NC}"
+echo -e "${GREEN}[5/7] Lancement du Frontend Vue.js...${NC}"
 docker run -d \
   --name frontend-vue \
   --network match-network \
@@ -82,10 +82,26 @@ docker run -d \
   match-frontend
 
 # 6. Post-déploiement : Migrations et Seeds
-echo -e "${GREEN}[6/6] Exécution des migrations et chargement des données...${NC}"
+echo -e "${GREEN}[6/7] Exécution des migrations et chargement des données...${NC}"
 docker exec api-app alembic upgrade head
 docker exec api-ml alembic upgrade head
 docker exec -i postgres-db psql -U amaury -d footballapp_db < Data/seeds/teams_seed.sql
+
+# 7. Initialisation de l'intelligence (ML)
+echo -e "${GREEN}[7/7] Initialisation de l'intelligence (Ingestion & Entraînement)...${NC}"
+echo -n "Attente du démarrage de l'API ML..."
+until $(curl --output /dev/null --silent --fail http://localhost:8001/health); do
+    printf "."
+    sleep 2
+done
+echo -e " ${GREEN}Prêt !${NC}"
+
+
+echo "Lancement de l'ingestion des données (CSV -> SQL)..."
+curl -s -X POST http://localhost:8001/ingest > /dev/null
+echo "Lancement de l'entraînement du modèle initial..."
+curl -s -X POST http://localhost:8001/train > /dev/null
+echo -e "✅ ${GREEN}Intelligence initialisée.${NC}"
 
 echo -e "${BLUE}=== Architecture déployée avec succès ! ===${NC}"
 echo -e "Frontend : http://localhost:8082"
@@ -93,3 +109,4 @@ echo -e "API App  : http://localhost:8000/docs"
 echo -e "API ML   : http://localhost:8001/docs"
 echo -e "Base de données accessible sur le port 5432"
 echo -e "${BLUE}==========================================${NC}"
+
