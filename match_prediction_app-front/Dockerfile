@@ -30,8 +30,12 @@ RUN touch /var/run/nginx.pid && \
 
 USER nginx
 
-# Exposition du port 8080 (Non-privileged)
-EXPOSE 8080
+# Exposition des ports (Non-privileged)
+EXPOSE 8080 8443
+
+# Création du dossier pour les certificats SSL avec les bonnes permissions
+RUN mkdir -p /etc/nginx/ssl && chown -R nginx:nginx /etc/nginx/ssl
 
 # Nginx démarre automatiquement par défaut
 CMD ["nginx", "-g", "daemon off;"]
+

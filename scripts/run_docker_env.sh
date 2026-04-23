@@ -12,17 +12,21 @@ echo -e "${GREEN}[0/6] Nettoyage des anciens conteneurs...${NC}"
 ./scripts/docker_clean.sh > /dev/null 2>&1 || true
 
 # Vérification des ports occupés par des serveurs locaux (hors Docker)
-for port in 8000 8001 8082 5432; do
+for port in 8000 8001 8082 8443 5432; do
   if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null ; then
       echo -e "\033[0;31mERREUR : Le port $port est déjà utilisé par un processus local.\033[0m"
-      echo "👉 Merci d'arrêter tes terminaux qui font tourner uvicorn, npm ou psql avant de continuer."
       exit 1
   fi
 done
 
-# 1. Création du réseau
-echo -e "${GREEN}[1/6] Création du réseau 'match-network'...${NC}"
+# 1. Création du réseau et des certificats
+echo -e "${GREEN}[1/6] Préparation du réseau et des certificats...${NC}"
 docker network create match-network 2>/dev/null || echo "Le réseau existe déjà."
+
+# Génération des certificats SSL s'ils n'existent pas
+if [ ! -f "./ssl/fullchain.pem" ]; then
+    ./scripts/generate_ssl.sh
+fi
 
 # 2. Lancement de PostgreSQL avec Volume pour la persistance
 echo -e "${GREEN}[2/7] Lancement du conteneur PostgreSQL...${NC}"
@@ -73,12 +77,14 @@ docker run -d \
   -e DATABASE_ML_URL=postgresql://amaury:password@postgres-db:5432/footballml_db \
   match-api-ml
 
-# 5. Lancement du Frontend
-echo -e "${GREEN}[5/7] Lancement du Frontend Vue.js...${NC}"
+# 5. Lancement du Frontend (HTTP + HTTPS)
+echo -e "${GREEN}[5/7] Lancement du Frontend Vue.js (HTTPS)...${NC}"
 docker run -d \
   --name frontend-vue \
   --network match-network \
+  -v "$(pwd)/ssl:/etc/nginx/ssl:ro" \
   -p 8082:8080 \
+  -p 8443:8443 \
   match-frontend
 
 # 6. Post-déploiement : Migrations et Seeds
@@ -104,9 +110,10 @@ curl -s -X POST http://localhost:8001/train > /dev/null
 echo -e "✅ ${GREEN}Intelligence initialisée.${NC}"
 
 echo -e "${BLUE}=== Architecture déployée avec succès ! ===${NC}"
-echo -e "Frontend : http://localhost:8082"
-echo -e "API App  : http://localhost:8000/docs"
-echo -e "API ML   : http://localhost:8001/docs"
+echo -e "Frontend (HTTPS) : https://localhost:8443"
+echo -e "Frontend (HTTP)  : http://localhost:8082 -> Redirige vers HTTPS"
+echo -e "API App          : http://localhost:8000/docs"
+echo -e "API ML           : http://localhost:8001/docs"
 echo -e "Base de données accessible sur le port 5432"
 echo -e "${BLUE}==========================================${NC}"
 
