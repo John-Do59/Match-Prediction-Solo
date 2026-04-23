@@ -1,0 +1,17 @@
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.db
+*.sqlite3
+.env
+.ipynb_checkpoints/
+.pytest_cache/
+.vscode/
+.idea/
+Dockerfile
+.dockerignore
+alembic/versions/*.py
+!alembic/versions/HEAD

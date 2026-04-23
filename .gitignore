@@ -11,19 +11,41 @@ __pycache__/
 
 # Fichiers de configuration locaux
 .env
+.env.*
 
-# Cache de pytest
+# Cache de pytest et couverture
 .pytest_cache/
+.coverage
+htmlcov/
 
 # Bases de données SQLite
 *.db
 FastAPI_App/*.db
 FastAPI_ML/*.db
 
-# Modèles
+# Modèles et Data
 *.joblib
+!Data/dataset/match_model_v1.joblib
 *.csv
+!Data/dataset/*.csv
+*_backup.sql
 
-# IntelliJ
+# Logs
+*.log
+match_prediction_app-front/*.log
+
+# Node / Frontend
+node_modules/
+dist/
+match_prediction_app-front/node_modules/
+match_prediction_app-front/dist/
+
+# Système
+.DS_Store
+Thumbs.db
+
+# IDEs
 .idea/
-.idea
+.vscode/
+*.swp
+*.swo

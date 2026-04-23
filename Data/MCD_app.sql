@@ -1,21 +1,15 @@
 -- ============================================================
 -- DB APPLICATION : footballapp_db
 -- Gestion des utilisateurs, de l'authentification et de
--- l'historique des predictions.
--- SEPAREE de footballprediction_db (DB ML / Data).
+-- l'historique des prédictions.
+-- SÉPARÉE de footballml_db (DB ML / Data).
+--
+-- USAGE : Ce fichier sert de RÉFÉRENCE pour documenter le schéma.
+-- Pour créer les tables, utiliser Alembic : alembic upgrade head
 -- ============================================================
 
-CREATE DATABASE footballapp_db;
--- ============================================================
--- DB APPLICATION : footballapp_db
--- Gestion des utilisateurs, de l'authentification et de
--- l'historique des predictions.
--- SEPAREE de footballprediction_db (DB ML / Data).
--- ============================================================
-
-CREATE DATABASE footballapp_db;
-
-\c footballapp_db;
+-- Prérequis : créer la base manuellement avant d'appliquer les migrations
+-- psql -U postgres -c "CREATE DATABASE footballapp_db;"
 
 -- ============================================================
 -- Table des équipes (référence pour les prédictions)
@@ -39,8 +33,7 @@ CREATE TABLE "user" (
 );
 
 -- ============================================================
--- Table de l'historique des predictions
--- Corrigée pour correspondre au modèle SQLAlchemy
+-- Table de l'historique des prédictions
 -- ============================================================
 CREATE TABLE prediction_history (
     id SERIAL PRIMARY KEY,
@@ -64,7 +57,6 @@ CREATE TABLE prediction_history (
 
 -- ============================================================
 -- Table des équipes favorites d'un utilisateur
--- Corrigée pour utiliser team_id au lieu de team_name
 -- ============================================================
 CREATE TABLE user_favorite_team (
     id SERIAL PRIMARY KEY,
@@ -77,50 +69,7 @@ CREATE TABLE user_favorite_team (
     CONSTRAINT uq_user_team UNIQUE (user_id, team_id)
 );
 
--- Index pour optimiser les performances
+-- Index
 CREATE INDEX idx_prediction_history_user_id ON prediction_history(user_id);
 CREATE INDEX idx_prediction_history_created_at ON prediction_history(created_at);
 CREATE INDEX idx_user_favorite_team_user_id ON user_favorite_team(user_id);
-\c footballapp_db;
-
--- ============================================================
--- Table des utilisateurs (authentification JWT)
--- ============================================================
-CREATE TABLE "user" (
-    id              SERIAL       PRIMARY KEY,
-    username        VARCHAR(50)  NOT NULL UNIQUE,
-    email           VARCHAR(100) NOT NULL UNIQUE,
-    hashed_password TEXT         NOT NULL,
-    is_active       BOOLEAN      NOT NULL DEFAULT TRUE,
-    created_at      TIMESTAMP    NOT NULL DEFAULT NOW()
-);
-
--- ============================================================
--- Table de l'historique des predictions
--- Stocke les resultats demandes par chaque utilisateur.
--- Les noms d'equipes sont en texte brut (pas de FK inter-DB).
--- L'App API communique avec la ML API via HTTP, pas via SQL.
--- ============================================================
-CREATE TABLE prediction_history (
-    id               SERIAL        PRIMARY KEY,
-    user_id          INT           NOT NULL,
-    home_team_name   VARCHAR(100)  NOT NULL,
-    away_team_name   VARCHAR(100)  NOT NULL,
-    predicted_result VARCHAR(10),
-    confidence_score NUMERIC(5, 4),
-    created_at       TIMESTAMP     NOT NULL DEFAULT NOW(),
-    CONSTRAINT fk_user_prediction FOREIGN KEY (user_id)
-        REFERENCES "user" (id) ON DELETE CASCADE
-);
-
--- ============================================================
--- Table des equipes favorites d'un utilisateur
--- ============================================================
-CREATE TABLE user_favorite_team (
-    id        SERIAL       PRIMARY KEY,
-    user_id   INT          NOT NULL,
-    team_name VARCHAR(100) NOT NULL,
-    CONSTRAINT fk_user_favorite FOREIGN KEY (user_id)
-        REFERENCES "user" (id) ON DELETE CASCADE,
-    CONSTRAINT uq_user_team UNIQUE (user_id, team_name)
-);

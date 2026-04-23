@@ -1,17 +1,23 @@
 from contextlib import asynccontextmanager
-from .services.ml_service import ml_service
 from fastapi import FastAPI
-from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
+
+from .services.ml_service import ml_service
 from .routes.predict import register_routes
 from .routes.train import register_routes as register_train_routes
 from .routes.ingestion import register_routes as register_ingestion_routes
 from .core.config import settings
-from .database import engine, Base, SessionLocal
+from .database import SessionLocal
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    Base.metadata.create_all(bind=engine)
+    """
+    Démarrage de l'application ML.
+    Aucune initialisation de schéma ici — c'est le rôle d'Alembic.
+    Seul le modèle scikit-learn est chargé en mémoire au démarrage.
+    """
+    from pathlib import Path
 
     if Path(settings.MODEL_PATH).exists():
         try:
@@ -23,7 +29,6 @@ async def lifespan(_: FastAPI):
                 db.close()
             print("Modèle chargé avec succès.")
         except Exception as e:
-
             print(f"Avertissement — modèle non chargé : {e}")
     else:
         print(f"Avertissement — modèle introuvable : {settings.MODEL_PATH}")
@@ -31,16 +36,17 @@ async def lifespan(_: FastAPI):
 
     yield
 
+
 app = FastAPI(
     title=settings.PROJECT_NAME,
     description="API ML (données de matchs, entraînement et prédiction) pour la Match Prediction App.",
     version=settings.PROJECT_VERSION,
-    lifespan= lifespan,
+    lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\d+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -50,7 +56,7 @@ register_routes(app)
 register_train_routes(app)
 register_ingestion_routes(app)
 
+
 @app.get("/health", tags=["Health"])
 def health_check():
     return {"status": "ok", "service": "ml-api"}
-

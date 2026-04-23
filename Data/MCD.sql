@@ -1,15 +1,14 @@
 -- ============================================================
--- DB ML : footballprediction_db
+-- DB ML : footballml_db
 -- Données de matchs, statistiques et modèle ML
 -- ============================================================
 
-CREATE DATABASE footballprediction_db;
+CREATE DATABASE footballml_db;
 
-\c footballprediction_db;
+\c footballml_db;
 
 -- ============================================================
 -- Table des équipes
--- Corrigée pour correspondre au modèle SQLAlchemy
 -- ============================================================
 CREATE TABLE teams (
     id SERIAL PRIMARY KEY,
@@ -120,6 +119,7 @@ CREATE TABLE team_stats_reference (
     
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
 
 -- ============================================================
 -- Table des logs d'entraînement du modèle

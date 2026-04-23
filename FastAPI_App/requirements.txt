@@ -1,6 +1,7 @@
 fastapi==0.115.0
 uvicorn==0.30.0
 SQLAlchemy==2.0.36
+alembic==1.13.3
 psycopg2-binary==2.9.10
 passlib[bcrypt]==1.7.4
 python-jose[cryptography]==3.3.0
@@ -13,3 +14,4 @@ pydantic-settings==2.5.2
 pytest-mock==3.14.0
 respx==0.21.1
 slowapi==0.1.9
+requests==2.32.3

@@ -200,4 +200,22 @@ npm run serve
 - **Vérification UI** : Validation que les composants Vue.js (`PredictionView.vue`, `StatisticsView.vue`) ont conservé leurs animations GSAP et leur style Glassmorphism malgré les simplifications présentes sur `develop`.
 - **Intégrité des Modèles** : Restauration/Maintien de la colonne `logo_url` dans le modèle `Team` pour ne pas casser le scraper et l'affichage des logos dans le frontend.
 
+---
 
+## 🏗️ Refactoring Base de Données & Migration Alembic
+
+### 1. Modernisation de l'Initialisation de la Base de Données
+- **Suppression Acte de Foi (create_all)** : Retrait systématique des appels `Base.metadata.create_all(bind=engine)` dans le `lifespan` de `FastAPI_App` et `FastAPI_ML` afin de supprimer l'initialisation magique et dangereuse de SQLAlchemy.
+- **Intégration Alembic** : Ajout d'Alembic dans les dépendances (`requirements.txt`) des deux API et configuration asynchrone (`env.py`) pour relier dynamiquement l'outil de migration aux modèles métiers SQLAlchemy en lecture autoconfigurée.
+- **Paramétrage `.env` Sécurisé** : Centralisation complète des connections via `DATABASE_URL` et `DATABASE_ML_URL` déclarés dans le `.env` pour empêcher Alembic d'utiliser des bases par défaut en dur dans `.ini`.
+
+### 2. Nettoyage de la Dette Technique
+- **Suppression des Scripts Hybrides** : Tous les scripts de création brut ou orphelins (ex: `init_db.py`, `cleanup_teams.py`) ont été purgés pour forcer une source de vérité unique : les fichiers de migrations d'Alembic.
+- **Conversion du MCD** : L'ancien script `MCD_app.sql` rempli de commandes SQL de création a été neutralisé (transformation en simple documentation par des commentaires ciblés) pour ne plus perturber la base.
+
+### 3. Résolution des Bugs de Post-Migration
+- **Oblitérations des Fausses Routes "baseline_initial"** : Les migrations dites vierges (`baseline_initial.py`), qui bloquaient les builds (erreur `UndefinedTable` ou relation n'existant pas PostgreSQL), ont été droppées via `alembic downgrade base` et supprimées du code.
+- **Exécution Vraie & Création Active** : Nouvelles migrations propulsées via `alembic revision --autogenerate -m "Init schema"`. Ces scripts contiennent réellement les `op.create_table(...)`. L'appel final à `alembic upgrade head` a instantanément et matériellement bâti les bases `footballapp_db` et `footballml_db`.
+- **Ré-Alignement de l'Ingestion ML** : Le plantage `FileNotFoundError` sur les datasets de l'interface ML a été corrigé en modifiant la variable `DATA_DIR=../Data/dataset/` dans la config et le template `.env.example`.
+- **Résolution Auth (JWT "Could not validate...")** : Suite à la disparition des anciens comptes lors la mise à jour, remplacement du bug "utilisateur dev fantôme" par une procédure propre (Déconnexion / Réinscription) ou l'usage documenté de la fonction `bcrypt` en SQL direct.
+- **Activation Prédiction (Data Matchday & Équipes)** : Lancement des routes `POST /ingest` (1234 matchs importés de la LFP) et `POST /train` qui ont peuplé la `team_stats_reference`, résolvant la page Prédiction et réglant l'erreur "Équipes introuvables".
