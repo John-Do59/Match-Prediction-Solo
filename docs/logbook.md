@@ -219,3 +219,31 @@ npm run serve
 - **Ré-Alignement de l'Ingestion ML** : Le plantage `FileNotFoundError` sur les datasets de l'interface ML a été corrigé en modifiant la variable `DATA_DIR=../Data/dataset/` dans la config et le template `.env.example`.
 - **Résolution Auth (JWT "Could not validate...")** : Suite à la disparition des anciens comptes lors la mise à jour, remplacement du bug "utilisateur dev fantôme" par une procédure propre (Déconnexion / Réinscription) ou l'usage documenté de la fonction `bcrypt` en SQL direct.
 - **Activation Prédiction (Data Matchday & Équipes)** : Lancement des routes `POST /ingest` (1234 matchs importés de la LFP) et `POST /train` qui ont peuplé la `team_stats_reference`, résolvant la page Prédiction et réglant l'erreur "Équipes introuvables".
+
+## 🛡️ Phase : Sécurisation & Hardening (Production-Ready)
+
+### 1. Système de Logging Centralisé
+- **Standardisation `shared/logging_config.py`** : Abandon définitif des `print()` au profit d'un logger Python configuré.
+- **Format Hybride** :
+    - **Développement** : Sortie console lisible et colorée.
+    - **Production (JSON)** : Format structuré facilitant l'ingestion par des outils de monitoring (ELK/Loki).
+- **Migration Systématique** : Mise à jour de tous les microservices (API App, ML, Scripts) pour utiliser le logger injecté.
+
+### 2. Implémentation HTTPS/SSL (Frontend)
+- **Chiffrement du Trafic** : Configuration de Nginx pour écouter sur le port **8443** avec support SSL (TLS 1.2+).
+- **Redirection Forcée** : Le port HTTP (8082) redirige désormais systématiquement les utilisateurs vers HTTPS.
+- **Génération Automatisée** : Création du script `scripts/generate_ssl.sh` pour produire des certificats auto-signés en local.
+- **Sécurité des En-têtes** : Activation du **HSTS** (Strict Transport Security) pour protéger contre les attaques de downgrade.
+
+### 3. Durcissement (Hardening) de l'Infrastructure Docker
+- **Principe du Moindre Privilège** : Les conteneurs ne tournent plus en `root`. Création d'utilisateurs dédiés (`nginx` et `appuser`) avec permissions restreintes.
+- **Isolation des Secrets** : Les certificats SSL sont montés en lecture seule (`ro`) dans les conteneurs.
+- **Nettoyage Automatique** : Mise à jour de `run_docker_env.sh` pour gérer le cycle de vie complet (génération SSL -> build -> orchestration).
+
+### 4. Restructuration de la Documentation
+- **Centralisation `/docs`** : Regroupement de tous les fichiers `.md` techniques dans un répertoire dédié pour clarifier la racine du projet.
+- **Nouveaux Guides** : Rédaction de `docs/production_ssl.md` et mise à jour de `docs/security_updates.md` pour documenter les nouvelles normes de sécurité.
+
+---
+
+**État du projet :** Production-Ready (Infrastructure). Prêt pour le déploiement sur serveur réel.
