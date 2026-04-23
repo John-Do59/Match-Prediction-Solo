@@ -12,6 +12,8 @@ __pycache__/
 # Fichiers de configuration locaux
 .env
 .env.*
+ssl/
+
 
 # Cache de pytest et couverture
 .pytest_cache/
