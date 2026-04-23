@@ -1,4 +1,14 @@
+import sys
+import os
 from contextlib import asynccontextmanager
+
+# On ajoute le chemin vers 'shared' pour qu'il soit importable quel que soit le contexte
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from shared.logging_config import setup_logging
+
+# Initialisation immédiate du logging
+setup_logging("API-App")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

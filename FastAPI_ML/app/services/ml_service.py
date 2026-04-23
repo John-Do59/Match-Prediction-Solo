@@ -1,3 +1,4 @@
+import logging
 import joblib
 import pandas as pd
 import numpy as np
@@ -5,6 +6,8 @@ from pathlib import Path
 from typing import Dict
 
 from ..core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class MLService:
@@ -27,12 +30,12 @@ class MLService:
         model_path = Path(settings.MODEL_PATH)
 
         if not model_path.exists():
-            print(f"Avertissement — modèle introuvable : {model_path}")
+            logger.warning("Modèle introuvable : %s", model_path)
             return
 
         self.model           = joblib.load(model_path)
         self.is_model_loaded = True
-        print(f"Modèle chargé : {model_path}")
+        logger.info("Modèle chargé : %s", model_path)
 
     def load_stats_from_db(self, db) -> None:
         """
@@ -43,7 +46,7 @@ class MLService:
         stats = db.query(TeamStatsReference).all()
 
         if not stats:
-            print("Avertissement — team_stats_reference est vide. Lancez POST /train d'abord.")
+            logger.warning("team_stats_reference est vide. Lancez POST /train d'abord.")
             return
 
         # Construction des DataFrames à partir des lignes de la BD
@@ -94,7 +97,7 @@ class MLService:
         self.rolling_home = pd.DataFrame(records_rolling_home)
         self.rolling_away = pd.DataFrame(records_rolling_away)
 
-        print(f"Stats chargées depuis la BD : {len(stats)} entrées.")
+        logger.info("Stats chargées depuis la BD : %d entrées.", len(stats))
 
     def get_stat(
         self,

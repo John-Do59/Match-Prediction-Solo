@@ -1,4 +1,15 @@
+import sys
+import os
+import logging
 from contextlib import asynccontextmanager
+
+# On ajoute le chemin vers 'shared' pour qu'il soit importable quel que soit le contexte
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
+from shared.logging_config import setup_logging
+
+# Initialisation immédiate du logging
+logger = setup_logging("API-ML")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -14,8 +25,6 @@ from .database import SessionLocal
 async def lifespan(_: FastAPI):
     """
     Démarrage de l'application ML.
-    Aucune initialisation de schéma ici — c'est le rôle d'Alembic.
-    Seul le modèle scikit-learn est chargé en mémoire au démarrage.
     """
     from pathlib import Path
 
@@ -27,12 +36,12 @@ async def lifespan(_: FastAPI):
                 ml_service.load_stats_from_db(db)
             finally:
                 db.close()
-            print("Modèle chargé avec succès.")
+            logger.info("Modèle chargé avec succès.")
         except Exception as e:
-            print(f"Avertissement — modèle non chargé : {e}")
+            logger.warning(f"Modèle non chargé : {e}")
     else:
-        print(f"Avertissement — modèle introuvable : {settings.MODEL_PATH}")
-        print("Lancez POST /train pour entraîner le premier modèle.")
+        logger.warning(f"Modèle introuvable : {settings.MODEL_PATH}")
+        logger.info("Lancez POST /train pour entraîner le premier modèle.")
 
     yield
 

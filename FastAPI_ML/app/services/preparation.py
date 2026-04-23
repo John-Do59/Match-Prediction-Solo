@@ -1,3 +1,4 @@
+import logging
 import pandas as pd
 from pathlib import Path
 from typing import Dict
@@ -7,8 +8,11 @@ from sqlalchemy import func
 from ..models.match import FootballMatch
 from ..core.config import settings
 
+logger = logging.getLogger(__name__)
+
 
 class PreparationService:
+
 
     # Colonnes à supprimer après la fusion
     _COLS_TO_DROP = [
@@ -169,7 +173,7 @@ class PreparationService:
         if "league.season" in df.columns:
             df["league.season"] = df["league.season"].fillna("2025")
         else:
-            print("Warning: 'league.season' column missing, defaulting to 2025")
+            logger.warning("'league.season' column missing, defaulting to 2025")
             df["league.season"] = 2025
         
         df = df.dropna(subset=["Result"]).copy()
