@@ -24,5 +24,9 @@ WORKDIR /app/FastAPI_App
 # Exposition du port par défaut
 EXPOSE 8000
 
+# Création d'un utilisateur non-root pour la sécurité
+RUN adduser --disabled-password --gecos "" appuser && chown -R appuser:appuser /app
+USER appuser
+
 # Commande de démarrage (L'hôte 0.0.0.0 est crucial pour Docker)
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

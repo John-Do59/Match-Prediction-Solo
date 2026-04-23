@@ -24,8 +24,14 @@ COPY match_prediction_app-front/nginx.conf /etc/nginx/conf.d/default.conf
 # Copie des fichiers compilés depuis l'étape précédente
 COPY --from=build-stage /app/dist /usr/share/nginx/html
 
-# Exposition du port 80 (Interne au conteneur)
-EXPOSE 80
+# Ajustement des permissions pour permettre à l'utilisateur 'nginx' (non-root) de tourner
+RUN touch /var/run/nginx.pid && \
+    chown -R nginx:nginx /var/run/nginx.pid /var/cache/nginx /var/log/nginx
+
+USER nginx
+
+# Exposition du port 8080 (Non-privileged)
+EXPOSE 8080
 
 # Nginx démarre automatiquement par défaut
 CMD ["nginx", "-g", "daemon off;"]

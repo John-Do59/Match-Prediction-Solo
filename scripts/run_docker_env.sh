@@ -78,7 +78,7 @@ echo -e "${GREEN}[5/7] Lancement du Frontend Vue.js...${NC}"
 docker run -d \
   --name frontend-vue \
   --network match-network \
-  -p 8082:80 \
+  -p 8082:8080 \
   match-frontend
 
 # 6. Post-déploiement : Migrations et Seeds
