@@ -1,7 +1,12 @@
 import os
 # Configuration de la base de données de test (PostgreSQL)
-TEST_DB_URL = "postgresql:///footballapp_app_test"
-os.environ["DATABASE_APP_URL"] = TEST_DB_URL
+# On privilégie la variable d'env, sinon on adapte selon si on est dans Docker ou en local
+TEST_DB_URL = os.getenv(
+    "TEST_DATABASE_URL",
+    "postgresql://amaury:password@postgres-db:5432/footballapp_app_test" if os.path.exists("/.dockerenv") 
+    else "postgresql:///footballapp_app_test"
+)
+os.environ["DATABASE_URL"] = TEST_DB_URL
 
 import pytest
 from sqlalchemy import create_engine

@@ -39,9 +39,12 @@ docker run -d \
 echo "Attente de 5 secondes pour l'initialisation de Postgres..."
 sleep 5
 
-# Création de la deuxième base de données (ML) si elle n'existe pas
+# Création de la deuxième base de données (ML) et de test si elles n'existent pas
 docker exec -i postgres-db psql -U amaury -d footballapp_db -tc "SELECT 1 FROM pg_database WHERE datname = 'footballml_db'" | grep -q 1 || \
 docker exec -i postgres-db psql -U amaury -d footballapp_db -c "CREATE DATABASE footballml_db;"
+
+docker exec -i postgres-db psql -U amaury -d footballapp_db -tc "SELECT 1 FROM pg_database WHERE datname = 'footballapp_app_test'" | grep -q 1 || \
+docker exec -i postgres-db psql -U amaury -d footballapp_db -c "CREATE DATABASE footballapp_app_test;"
 
 # 3. Build des images
 echo -e "${GREEN}[3/5] Build des images (Backend & Frontend)...${NC}"
