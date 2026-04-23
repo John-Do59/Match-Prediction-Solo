@@ -24,6 +24,10 @@ Ce document récapitule les mesures de sécurité implémentées pour renforcer 
 - **Réinitialisation de mot de passe** : Intégration du service **Resend** pour l'envoi d'emails réels.
 - **Sécurité Dev** : En mode développement (sans clé API), le lien de réinitialisation est affiché dans les logs du serveur de manière sécurisée.
 
+### 4. Observabilité Sécurisée (Logging)
+- **Format JSON** : En production, les logs sont générés au format JSON structuré. Cela facilite l'analyse par des outils tiers (SIEM, ELK) sans exposer de données sensibles via des `print` non contrôlés.
+- **Contextualisation** : Chaque log contient le nom du service et le niveau de sévérité, permettant un traçage précis des incidents.
+
 ---
 
 ## 🐳 Hardening de l'Infrastructure Docker
@@ -40,9 +44,11 @@ Pour respecter les bonnes pratiques de sécurité (Least Privilege), les contene
     - Exécution sous l'utilisateur `nginx`.
     - Ajustement des permissions sur `/var/cache/nginx` et `/var/run/nginx.pid`.
 
-### 2. Orchestration de Déploiement
-- Le script `scripts/run_docker_env.sh` a été mis à jour pour mapper le port externe **8082** vers le nouveau port interne **8080**.
-- Suppression des résidus de fichiers sensibles dans les conteneurs via `.dockerignore`.
+### 2. Orchestration et Chiffrement
+- **HTTPS/SSL** : Tout le trafic frontend est désormais chiffré via SSL (TLS 1.2+).
+- **Redirection Forcée** : Le port HTTP (8080) redirige systématiquement vers le port HTTPS (8443).
+- **HSTS** : Activation de l'en-tête `Strict-Transport-Security` pour empêcher les attaques de type "downgrade".
+- **Isolation** : Les certificats sont montés via des volumes `ro` (read-only) pour que le conteneur ne puisse pas les modifier.
 
 ---
 

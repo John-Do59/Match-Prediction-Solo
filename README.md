@@ -6,9 +6,9 @@ Application complète de prédiction de matchs de Ligue 1 avec une architecture 
 
 - **2 APIs FastAPI** (Application & ML) communicantes.
 - **2 bases PostgreSQL** isolées (`footballapp_db` & `footballml_db`).
-- **1 frontend Vue.js 3** moderne et réactif.
+- **1 frontend Vue.js 3** moderne et réactif (Nginx).
 - **Pipeline de données Python** (SQLAlchemy) pour le seeding et l'ingestion.
-- **Orchestration Docker** manuelle pour simuler un environnement de production.
+- **Orchestration Docker** manuelle avec **HTTPS/SSL** et **Logging Centralisé**.
 
 ---
 
@@ -21,9 +21,10 @@ Match-Prediction-App/
 ├── FastAPI_ML/           # API ML (Matchs, Entraînement, Prédiction)
 ├── match_prediction_app-front/  # Frontend Vue.js
 ├── Data/                 # Datasets CSV et documentation SQL (MCD)
-├── scripts/              # Orchestration Docker (Run & Clean)
+├── scripts/              # Orchestration Docker, SSL et Clean
+├── docs/                 # Documentation centralisée (.md)
 ├── .env                  # Source unique de vérité (partagée)
-└── docker.md             # Guide détaillé sur l'implémentation Docker
+└── README.md             # Guide principal d'entrée
 ```
 
 ---
@@ -49,9 +50,10 @@ chmod +x scripts/*.sh
 
 ### 3. Accès
 
-- **Frontend** : [http://localhost:8082](http://localhost:8082)
-- **API App** : [http://localhost:8000/docs](http://localhost:8000/docs)
-- **API ML** : [http://localhost:8001/docs](http://localhost:8001/docs)
+- **Frontend (HTTPS)** : [https://localhost:8443](https://localhost:8443) (Recommandé)
+- **Frontend (HTTP)** : [http://localhost:8082](http://localhost:8082) (Redirige vers HTTPS)
+- **API App Docs** : [http://localhost:8000/docs](http://localhost:8000/docs)
+- **API ML Docs** : [http://localhost:8001/docs](http://localhost:8001/docs)
 
 ---
 
@@ -105,7 +107,9 @@ docker exec api-ml pytest tests_ml/
 
 ## 📖 Documentation Complémentaire
 
-- **Docker** : Consultez [docker.md](docker.md) pour comprendre comment nous avons implémenté Docker sans Docker Compose.
+- **Docker** : Consultez [docs/docker.md](docs/docker.md) pour comprendre comment nous avons implémenté Docker sans Docker Compose.
+- **Sécurité et SSL** : Guide de mise à jour et passage en production disponible dans [docs/security_updates.md](docs/security_updates.md) et [docs/production_ssl.md](docs/production_ssl.md).
+- **Historique du Projet** : Journal de bord et décisions techniques dans [docs/logbook.md](docs/logbook.md).
 - **Base de données** : Les schémas de référence sont disponibles dans `Data/MCD.sql` (ML) et `Data/MCD_app.sql` (App).
 - **Workflow Alembic** : Toute modification des modèles Python doit faire l'objet d'une migration via `alembic revision --autogenerate`.
 

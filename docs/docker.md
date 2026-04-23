@@ -35,10 +35,16 @@ Notre implémentation utilise une approche "Zero-Touch" : un seul script lance t
 
 ### Composants Clés
 
-1. **Frontend (Port 8082)** : Interface utilisateur (Nginx + Vue.js).
+1. **Frontend (Port 8082 / 8443)** : Interface utilisateur (Nginx + Vue.js) sécurisée par SSL.
 2. **API App (Port 8000)** : Backend principal (FastAPI + PostgreSQL).
 3. **API ML (Port 8001)** : Intelligence Artificielle (FastAPI + Modèles Pré-entraînés).
 4. **PostgreSQL (Port 5432)** : Base de données relationnelle unique avec deux schémas (`footballapp_db` et `footballml_db`).
+
+### Volumes et Persistance
+
+- **postgres_data** : Stocke physiquement les fichiers de la base de données.
+- **ssl (local)** : Contient les certificats SSL auto-générés par `./scripts/generate_ssl.sh`, montés dans Nginx.
+
 
 ### Le Module `shared/`
 
