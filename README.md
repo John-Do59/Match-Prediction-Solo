@@ -26,7 +26,7 @@ Match-Prediction-App/
 │   ├── MCD_app.sql       # Référence du schéma App (documentation)
 │   ├── MCD.sql           # Référence du schéma ML (documentation)
 │   └── seeds/
-│       └── teams_seed.sql  # Seeding initial des équipes (optionnel)
+│       └── seed_teams.py   # Seeding initial des équipes (Python)
 ├── match_prediction_app-front/
 ├── .env.example          # Template de configuration (à copier en .env)
 └── .env                  # NON commité — variables locales
@@ -92,10 +92,11 @@ source venv/bin/activate
 alembic upgrade head
 ```
 
-### 3.3 Seeder les équipes (optionnel)
+### 3.3 Seeder les équipes (Python/SQLAlchemy)
 
 ```sh
-psql -U postgres -d footballapp_db -f Data/seeds/teams_seed.sql
+cd FastAPI_App
+python -m app.seeds.seed_teams
 ```
 
 ---
@@ -229,7 +230,7 @@ alembic history
 - `FastAPI_App/` : API Application (utilisateurs, auth, historique, favoris)
 - `FastAPI_ML/` : API ML (données de matchs + modèle scikit-learn)
 - `Data/` : documentation du schéma SQL (référence, non exécutable directement)
-- `Data/seeds/` : scripts SQL de seeding idempotents
+- `FastAPI_App/app/seeds/` : scripts Python de seeding idempotents (SQLAlchemy)
 - Chaque API a son propre `venv`, `requirements.txt` et configuration Alembic
 - Le fichier `.env` est **unique à la racine** et partagé entre les deux APIs
 - Les migrations sont **versionnées dans Git** (dossier `alembic/versions/`)

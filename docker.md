@@ -1,6 +1,6 @@
 # Guide d'Apprentissage : Docker Sans Docker Compose
 
-Ce document explique le fonctionnement de Docker et détaille comment nous l'avons implémenté manuellement dans le projet **Match Prediction App**.
+Ce document explique le fonctionnement de Docker et détaille comment nous l'avons implémenté manuellement dans le projet **Match Prediction App** pour simuler une architecture micro-services professionnelle.
 
 ---
 
@@ -20,159 +20,99 @@ Docker est une plateforme qui permet d'emballer une application et toutes ses d�
 
 | Terme | Définition simple |
 | :--- | :--- |
-| **Image** | C'est le "plan" ou le moule. C'est un fichier mort qui contient ton code et tes réglages. |
+| **Image** | C'est le "plan" ou le moule. C'est un fichier statique qui contient ton code et tes réglages. |
 | **Conteneur** | C'est l'image en train de tourner. C'est l'instance vivante de ton application. |
 | **Dockerfile** | La recette de cuisine qui explique comment transformer ton code en image. |
-| **Volume** | Un disque dur externe pour Docker. Sert à garder les données (ex: ta BDD) même si le conteneur est supprimé. |
-| **Persistance** | Capacité à garder les données après un redémarrage (via les Volumes). |
-| **Réseau (Network)** | Un câble invisible qui relie tes conteneurs entre eux. |
-| **Registry** | Une bibliothèque d'images (ex: Docker Hub pour télécharger l'image officielle de Postgres). |
+| **Volume** | Un disque dur persistant. Sert à garder les données (ex: ta BDD) même si le conteneur est supprimé. |
+| **Réseau (Network)** | Un câble invisible qui relie tes conteneurs entre eux (`match-network`). |
+| **Orchestration** | L'art de coordonner le démarrage et la communication entre plusieurs conteneurs. |
 
 ---
 
-## 2. Pourquoi "Sans Docker Compose" ?
+## 2. Architecture du Projet
 
-De nos jours, on utilise `docker-compose.yml` pour lancer 10 conteneurs d'un coup. Mais pour apprendre, le faire manuellement est crucial. Sans le Compose, nous devons :
+Notre implémentation utilise une approche "Zero-Touch" : un seul script lance tout l'écosystème.
 
-1. Devenir l'**Orchestrateur** : Nous devons décider quel conteneur démarre en premier.
-2. Tirer les **Câbles Réseau** : Nous devons créer nous-mêmes le réseau et y brancher chaque service.
+### Composants Clés
 
----
+1. **Frontend (Port 8082)** : Interface utilisateur (Nginx + Vue.js).
+2. **API App (Port 8000)** : Backend principal (FastAPI + PostgreSQL).
+3. **API ML (Port 8001)** : Intelligence Artificielle (FastAPI + Modèles Pré-entraînés).
+4. **PostgreSQL (Port 5432)** : Base de données relationnelle unique avec deux schémas (`footballapp_db` et `footballml_db`).
 
-## 3. L'Implémentation Étape par Étape
+### Le Module `shared/`
 
-### Étape A : Les fichiers d'exclusion (`.dockerignore`)
+Pour éviter la duplication de code, nous utilisons un dossier `shared/` à la racine :
 
-Avant de builder, on dit à Docker ce qu'il ne doit **pas** copier.
-
-- **Pourquoi ?** On ne veut pas copier les dossiers `venv/` (qui sont propres à ton Mac) ou les bases de données locales `.db` dans l'image. On veut une image propre.
-
-### Étape B : Les Recettes (Dockerfiles)
-
-Nous avons créé trois Dockerfiles différents :
-
-#### 1. Backend (Python)
-
-- On commence par une image légère : `python:3.12-slim`.
-- On installe `libpq-dev` et `gcc` car la librairie `psycopg2` (pour Postgres) a besoin d'outils de compilation système.
-- **Astuce de Pro** : On copie d'abord `requirements.txt` et on fait le `pip install` **AVANT** de copier le code. Pourquoi ? Parce que si tu modifies ton code mais pas tes dépendances, Docker réutilise le cache du `pip install` et gagne 2 minutes à chaque build !
-
-#### 2. Frontend (Multi-stage Build)
-
-C'est la partie la plus avancée. On utilise deux étapes :
-
-- **Stage 1 (Node)** : On compile le code Vue.js. Une fois terminé, on a un dossier `dist/` plein de fichiers statiques.
-- **Stage 2 (Nginx)** : On jette tout ce qui est Node (trop lourd) et on ne garde que le petit dossier `dist/` qu'on donne à un serveur Web ultra-léger (Nginx).
-
-### Étape C : Le Réseau ("match-network")
-
-Comme tes conteneurs sont isolés, `localhost` ne fonctionne plus entre eux.
-
-- Nous créons un réseau : `docker network create match-network`.
-- Désormais, le backend peut contacter la base de données via son nom de conteneur : `postgres-db`.
-
-### Étape D : Connexion et Variables d'Environnement
-
-Dans Docker, on ne modifie pas le code pour changer de base de données. On utilise l'option `--env-file .env` ou `-e DATABASE_URL=...` au moment du lancement.
-
-- Cela permet au même code d'utiliser une DB locale en dev et une DB Docker en conteneur.
+- Contient les **Common Settings** (Pydantic).
+- Est copié dynamiquement dans chaque conteneur lors du `docker build`.
+- **Astuce Technique** : Pour que les migrations Alembic puissent importer `shared`, nous avons modifié `alembic/env.py` pour ajouter le répertoire parent au `sys.path`.
 
 ---
 
-## 4. Les Scripts d'Automatisation
+## 3. Pipeline de Données Automatisé (Python Seeding)
 
-Pour éviter de taper 15 commandes à chaque fois, nous avons créé deux scripts dans `/scripts` :
+Nous avons abandonné les anciens scripts SQL (`Data/*.sql`) pour un pipeline Python moderne et robuste.
 
-1. **`run_docker_env.sh`** :
-    - Il crée le réseau.
-    - Il lance Postgres **avec un volume de persistance** (`postgres_data`).
-    - Il crée les bases `footballml_db` et `footballapp_app_test` si elles n'existent pas.
-    - Il build les 3 images (App, ML, Front).
-    - Il lance les 3 conteneurs.
-    - **Nouveauté :** Il exécute automatiquement les **migrations Alembic** et charge les **seeds** via `docker exec`.
+### Avantages du Seeding via SQLAlchemy
 
-2. **`docker_clean.sh`** :
-    - C'est l'équivalent de "tout ranger". Il arrête et supprime les conteneurs et le réseau pour laisser ton Docker tout propre.
+- **Idempotence** : Les scripts vérifient si la donnée existe déjà avant de l'insérer (pas de doublons).
+- **Flexibilité** : On peut utiliser des algorithmes complexes pour générer des données (ex: hashing de mots de passe, calculs ML).
+- **Maintenance** : Plus besoin de modifier 10 fichiers SQL quand le schéma change ; on utilise les modèles Python.
 
----
+### Déroulement de l'initialisation
 
-## 5. Astuce : Résoudre les conflits de ports
+Au démarrage, le script d'orchestration :
 
-Si tu vois l'erreur `"Port already in use"` ou `"Bind for 0.0.0.0:8000 failed"`, cela signifie qu'un service (Docker ou local) utilise déjà ce port.
-
-### Pourquoi ça arrive ?
-
-1. **Serveur local actif** : Tu as un terminal ouvert qui fait tourner `uvicorn` ou `npm run serve`.
-2. **Ancien conteneur** : Un conteneur Docker précédent n'a pas été bien arrêté.
-
-### Comment régler ça ?
-
-1. **Méthode Automatique** : Lance `./scripts/run_docker_env.sh`. J'ai mis à jour le script pour qu'il vérifie automatiquement si les ports 8000, 8001, 8082 et 5432 sont libres avant de démarrer.
-2. **Cas Particulier du Port 5432 (Postgres)** :
-    - Si tu as PostgreSQL installé via Homebrew sur ton Mac, il tourne en tant que service système.
-    - Utilise cette commande pour le libérer : `brew services stop postgresql@18` (ou ta version).
-3. **Méthode Manuelle** :
-    - Tape `lsof -i :8000` pour voir quel processus utilise le port.
-    - Arrête tes serveurs locaux dans tes terminaux.
-    - Lance `./scripts/docker_clean.sh` pour nettoyer les vieux conteneurs Docker.
+1. Lance les migrations **Alembic** pour créer les tables.
+2. Exécute `seed_teams.py` pour remplir les référentiels.
+3. Appelle l'API ML pour lancer l'**Ingestion** (CSV -> SQL) et l'**Entraînement** initial du modèle.
 
 ---
 
-## 6. Commandes Terminal Essentielles
+## 4. Guide d'Utilisation
 
-Pour ce projet, utilise ces commandes dans ton terminal (à la racine du projet) :
-
-### Lancer l'environnement
+### Lancer l'environnement complet
 
 ```bash
+chmod +x scripts/*.sh
 ./scripts/run_docker_env.sh
 ```
 
-*Cette commande fait tout : Réseau -> BDD -> Build Images -> Lancement Conteneurs -> Migrations -> Seeds -> Ingestion & Entraînement ML.*
+*Cette commande fait tout : Nettoyage -> Réseau -> BDD -> Build -> Migrations -> Seeds -> Ingestion & Training ML.*
 
-### Tout arrêter et nettoyer
+### Nettoyer tout l'environnement
 
 ```bash
 ./scripts/docker_clean.sh
 ```
 
-*Utile si tu veux recommencer de zéro ou libérer de la mémoire sur ton Mac.*
+*Arrête les conteneurs et supprime le réseau pour libérer les ressources.*
 
-### Inspecter ce qui se passe
+### Exécuter les tests unitaires (Dans Docker)
 
-1. Identifie les ports occupés : `lsof -Pi :5432 -sTCP:LISTEN -t` (remplace 5432 par le port concerné).
-2. Tue le processus : `kill -9 <PID>` (où <PID> est le numéro retourné).
-3. Relance le script.
+Il est crucial de tester dans Docker car c'est l'environnement qui se rapproche le plus de la production.
 
-- **Vérifie les logs** : `docker logs api-app` ou `docker logs api-ml`.
-- **Vérifie la BDD** : `docker exec -it postgres-db psql -U amaury -d footballapp_db`.
-- **Relance propre** : Exécute `./scripts/docker_clean.sh` avant de retenter `./scripts/run_docker_env.sh`.
-- **Nettoyage total** : `docker system prune -a --volumes` (Attention : supprime TOUTES les images inutilisées sur ton Mac).
+```bash
+# API Principale
+docker exec api-app pytest tests/
 
----
-
-## 7. Tests Automatisés en Docker
-
-### Pourquoi tester dans Docker ?
-
-- On utilise les mêmes librairies et la même version de Python que la production.
-- On teste la connectivité réelle avec PostgreSQL.
-
-### Comment ça marche ?
-
-1. Le script `run_docker_env.sh` crée automatiquement une base de données dédiée aux tests nommée `footballapp_app_test`.
-2. Le fichier `FastAPI_App/tests/conftest.py` détecte s'il est dans Docker et bascule sur cette base de test.
-3. Pour lancer les tests :
-
-   ```bash
-   docker exec api-app pytest
-   ```
-
-### Que vérifier en cas d'erreur ?
-
-- Vérifie que le conteneur `api-app` est bien démarré.
-- Assure-toi qu'aucune instance locale de Postgres ne bloque le port 5432.
+# API Machine Learning
+docker exec api-ml pytest tests_ml/
+```
 
 ---
 
-**Bravo !** En maîtrisant ces étapes manuelles, tu as compris 95% de ce que `docker-compose` fait automatiquement. Tu peux maintenant utiliser ces scripts pour tester ton projet dans un environnement de production simulé sur ton Mac.
+## 5. Résolution de Problèmes
+
+| Problème | Solution |
+| :--- | :--- |
+| **Port already in use** | Lancez `./scripts/docker_clean.sh` ou vérifiez avec `lsof -i :8000`. |
+| **Shared module not found** | Vérifiez que le `Dockerfile` copie bien le dossier `shared/` et que `env.py` a le bon `sys.path`. |
+| **Migration failed** | Vérifiez les logs avec `docker logs api-app`. Souvent dû à une DB non prête (le script attend désormais 5s). |
+| **HTTPX missing** | Si les tests ML échouent, assurez-vous que `httpx` est présent dans le `requirements.txt` de l'API ML. |
+
+---
+
+**Note sur Docker Compose** : En maîtrisant ces commandes manuelles, vous comprenez le "coeur" de Docker. Dans un vrai projet pro, on utiliserait Docker Compose pour simplifier, mais savoir le faire à la main fait de vous un expert.
+fait automatiquement. Tu peux maintenant utiliser ces scripts pour tester ton projet dans un environnement de production simulé sur ton Mac.

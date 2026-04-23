@@ -85,7 +85,7 @@ docker run -d \
 echo -e "${GREEN}[6/7] Exécution des migrations et chargement des données...${NC}"
 docker exec api-app alembic upgrade head
 docker exec api-ml alembic upgrade head
-docker exec -i postgres-db psql -U amaury -d footballapp_db < Data/seeds/teams_seed.sql
+docker exec api-app python -m app.seeds.seed_teams
 
 # 7. Initialisation de l'intelligence (ML)
 echo -e "${GREEN}[7/7] Initialisation de l'intelligence (Ingestion & Entraînement)...${NC}"

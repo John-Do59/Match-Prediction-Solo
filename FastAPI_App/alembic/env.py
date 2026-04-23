@@ -11,10 +11,14 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
-# ── Résolution du chemin pour importer l'application ─────────────────────────
 # FastAPI_App/alembic/env.py → on remonte à FastAPI_App/
 APP_DIR = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(APP_DIR))
+ROOT_DIR = APP_DIR.parent
+
+if str(APP_DIR) not in sys.path:
+    sys.path.insert(0, str(APP_DIR))
+if str(ROOT_DIR) not in sys.path:
+    sys.path.insert(0, str(ROOT_DIR))
 
 # ── Import des variables d'environnement ──────────────────────────────────────
 from dotenv import load_dotenv

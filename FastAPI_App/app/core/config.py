@@ -1,30 +1,23 @@
-import os
-from pydantic_settings import BaseSettings
-from dotenv import load_dotenv
+import sys
 from pathlib import Path
+from pydantic import Field
 
-# Charge .env depuis la racine du projet (un niveau au-dessus de FastAPI_App/)
-_root_env = Path(__file__).resolve().parents[3] / ".env"
-load_dotenv(dotenv_path=_root_env)
+# Ajout du chemin racine pour importer le package 'shared'
+PROJECT_ROOT = Path(__file__).resolve().parents[3]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from shared.config.base_settings import CommonSettings
 
 
-class Settings(BaseSettings):
+class Settings(CommonSettings):
     PROJECT_NAME: str = "Match Prediction App - Application API"
-    PROJECT_VERSION: str = "0.1.0"
 
-    # Aucune valeur par défaut : une mauvaise config lève une erreur au démarrage
+    # On utilise Field pour mapper DATABASE_URL (BaseSettings le fait déjà nativement
+    # mais on s'assure qu'il n'y a pas de confusion)
     DATABASE_URL: str
 
-    SECRET_KEY: str
-    ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
-
     ML_API_URL: str = "http://localhost:8001"
-
-    class Config:
-        env_file = str(_root_env)
-        env_file_encoding = "utf-8"
-        extra = "ignore"  # Le .env est partagé — on ignore les vars des autres services
 
 
 settings = Settings()
