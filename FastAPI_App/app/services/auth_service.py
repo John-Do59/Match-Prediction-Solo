@@ -93,18 +93,17 @@ class AuthService:
             # Sécurité: ne pas révéler si l'email existe
             return {"message": "Si l'adresse existe, un lien a été envoyé."}
         
-        # Option C: Simulation via console
+        # Envoi de l'email via le service dédié
+        from ..core.email import send_password_reset_email
+        
         reset_token = create_access_token(
             data={"sub": user.email, "type": "reset"},
             expires_delta=timedelta(minutes=15)
         )
         
-        print("\n" + "="*50)
-        print(f"PASSWORD RESET LINK FOR {email}:")
-        print(f"http://localhost:8080/reset-password?token={reset_token}")
-        print("="*50 + "\n")
+        send_password_reset_email(user.email, reset_token)
         
-        return {"message": "Si l'adresse existe, un lien a été envoyé (voir console backend)."}
+        return {"message": "Si l'adresse existe, un lien a été envoyé."}
 
     @staticmethod
     def reset_password_with_token(db: Session, token: str, new_pwd: str):

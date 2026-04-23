@@ -24,8 +24,9 @@ class CommonSettings(BaseSettings):
 
     PROJECT_VERSION: str = "0.1.0"
 
-    # JWT (utilisé par l'API Application; présent ici pour éviter la duplication)
-    SECRET_KEY: str = "your-super-secret-key-change-me"
+    # JWT — SECRET_KEY est OBLIGATOIRE, pas de valeur par défaut pour éviter
+    # qu'une instance oubliée tourne avec une clé publiquement connue.
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
