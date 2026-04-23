@@ -4,7 +4,7 @@ Ce document explique le fonctionnement de Docker et détaille comment nous l'avo
 
 ---
 
-## 1. Introduction à Docker
+## Introduction à Docker
 
 ### C'est quoi ?
 
@@ -29,7 +29,7 @@ Docker est une plateforme qui permet d'emballer une application et toutes ses d�
 
 ---
 
-## 2. Architecture du Projet
+## Architecture du Projet
 
 Notre implémentation utilise une approche "Zero-Touch" : un seul script lance tout l'écosystème.
 
@@ -45,7 +45,6 @@ Notre implémentation utilise une approche "Zero-Touch" : un seul script lance t
 - **postgres_data** : Stocke physiquement les fichiers de la base de données.
 - **ssl (local)** : Contient les certificats SSL auto-générés par `./scripts/generate_ssl.sh`, montés dans Nginx.
 
-
 ### Le Module `shared/`
 
 Pour éviter la duplication de code, nous utilisons un dossier `shared/` à la racine :
@@ -56,7 +55,7 @@ Pour éviter la duplication de code, nous utilisons un dossier `shared/` à la r
 
 ---
 
-## 3. Pipeline de Données Automatisé (Python Seeding)
+## Pipeline de Données Automatisé (Python Seeding)
 
 Nous avons abandonné les anciens scripts SQL (`Data/*.sql`) pour un pipeline Python moderne et robuste.
 
@@ -76,7 +75,7 @@ Au démarrage, le script d'orchestration :
 
 ---
 
-## 4. Guide d'Utilisation
+## Guide d'Utilisation
 
 ### Lancer l'environnement complet
 
@@ -109,7 +108,7 @@ docker exec api-ml pytest tests_ml/
 
 ---
 
-## 5. Résolution de Problèmes
+## Résolution de Problèmes
 
 | Problème | Solution |
 | :--- | :--- |

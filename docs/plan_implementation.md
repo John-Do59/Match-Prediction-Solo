@@ -1,10 +1,10 @@
 # PLAN D’IMPLEMENTATION - Match Prediction App MVP
 
-Ce document détaille la stratégie technique pour construire l'application de classification de matchs, respectant la séparation stricte des APIs et des bases de données.
+Ce document détaille la stratégie technique pour construire l'application de classification de matchs, respectant la séparation stricte des APIs et des bases de données, et le passage vers un environnement de production sécurisé.
 
 ## Objectif
 
-Construire une application scalable avec deux APIs FastAPI distinctes (App et ML), deux bases PostgreSQL, et un frontend Vue.js.
+Construire une application scalable avec deux APIs FastAPI distinctes (App et ML), deux bases PostgreSQL, et un frontend Vue.js, le tout orchestré par Docker avec une sécurité renforcée.
 
 ---
 
@@ -12,52 +12,71 @@ Construire une application scalable avec deux APIs FastAPI distinctes (App et ML
 
 ```mermaid
 graph TD
-    Front[Frontend Vue.js] --> AppAPI[API Architecture - FastAPI]
+    Front[Frontend Vue.js + Nginx SSL] --> AppAPI[API Architecture - FastAPI]
     AppAPI --> DB_App[(DB Users/History)]
     AppAPI --> ML_API[API ML - FastAPI]
     ML_API --> DB_ML[(DB Match Data)]
     ML_API --> Model[Model .joblib]
+    
+    subgraph Infrastructure
+        Docker[Manual Docker Orchestration]
+        SSL[SSL Certificates - Self-signed/Certbot]
+    end
 ```
 
 ---
 
 ## Sprints & Jalons
 
-### SPRINT 0: Structure & Infrastructure
+### [x] SPRINT 0: Structure & Infrastructure
 
-- Initialisation de l'arborescence (app-api, ml-api, frontend).
-- Configuration Docker avec orchestration par scripts (`run_docker_env.sh`).
-- Setup des environnements (.env).
+- [x] Initialisation de l'arborescence (app-api, ml-api, frontend).
+- [x] Configuration Docker avec orchestration par scripts (`run_docker_env.sh`).
+- [x] Setup des environnements (.env).
+- [x] Gestion des modules partagés (`shared/`).
 
-### SPRINT 1: API Application (Users & Auth)
+### [x] SPRINT 1: API Application (Users & Auth)
 
-- Modèles SQLAlchemy pour `User` et `PredictionHistory`.
-- Logique d'authentification JWT (Register/Login).
-- Endpoints : `/register`, `/login`, `/me`.
+- [x] Modèles SQLAlchemy pour `User` et `PredictionHistory`.
+- [x] Logique d'authentification JWT (Register/Login).
+- [x] Endpoints : `/register`, `/login`, `/me`.
 
-### SPRINT 2: Data Engineering (Ingestion & Stockage)
+### [x] SPRINT 2: Data Engineering (Ingestion & Stockage)
 
-- Scripts d'ingestion (multi-source : API/Fichiers/Scraping).
-- Pipeline de nettoyage et Feature Engineering.
-- Stockage des données de matchs dans la DB ML.
+- [x] Scripts d'ingestion (multi-source : API/Fichiers/Scraping).
+- [x] Pipeline de nettoyage et Feature Engineering.
+- [x] Stockage des données de matchs dans la DB ML.
 
-### SPRINT 3: Machine Learning (Modèle & Inférence)
+### [x] SPRINT 3: Machine Learning (Modèle & Inférence)
 
-- Entraînement (`RandomForest` ou `LogisticRegression`).
-- Endpoints ML : `/train`, `/predict`, `/metrics`.
-- Sauvegarde/Chargement du modèle via `joblib`.
+- [x] Entraînement (`RandomForest` ou `LogisticRegression`).
+- [x] Endpoints ML : `/train`, `/predict`, `/metrics`.
+- [x] Sauvegarde/Chargement du modèle via `joblib`.
 
-### SPRINT 4: Intégration & Client
+### [x] SPRINT 4: Intégration & Client
 
-- Client HTTP dans App-API pour communiquer avec ML-API.
-- Historisation des prédictions dans DB App.
-- Frontend minimal Vue.js (Formulaire de saisie + Affichage résultat).
+- [x] Client HTTP dans App-API pour communiquer avec ML-API.
+- [x] Historisation des prédictions dans DB App.
+- [x] Frontend Vue.js 3 (Formulaire + Résultats).
+- [x] Sécurisation Frontend avec Nginx et SSL.
 
-### SPRINT 5: Qualité & Déploiement
+### [/] SPRINT 5: Qualité & Documentation (EN COURS)
 
-- Tests unitaires et d'intégration avec `pytest`.
-- Documentation OpenAPI (Swagger).
-- README final et tutoriel d'installation.
+- [x] Tests unitaires et d'intégration avec `pytest` (API App & ML).
+- [ ] Documentation OpenAPI complète (Swagger).
+- [x] Guide Docker détaillé (`docker.md`).
+- [ ] README final et tutoriel d'installation propre.
+
+### [ ] SPRINT 6: Production Hardening (BACKLOG)
+
+- [ ] **Logging Structuré** : Centralisation des logs (JSON format) pour monitoring.
+- [ ] **Sécurité** :
+  - [ ] Masquage des headers serveur (Nginx hardening).
+  - [ ] Rate Limiting sur les endpoints sensibles (`/login`, `/predict`).
+  - [ ] Gestion des secrets via Docker Secrets ou Vault.
+- [ ] **Performance** : Cache Redis pour les prédictions fréquentes.
+- [ ] **CI/CD** : Pipeline GitHub Actions pour tests auto et build d'images.
+- [ ] **Monitoring** : Health checks avancés et intégration Prometheus (optionnel).
 
 ---
 
@@ -65,19 +84,20 @@ graph TD
 
 - **Backend** : FastAPI (Python 3.12+)
 - **ORM** : SQLAlchemy / Alembic
-- **Bases de données** : PostgreSQL (x2)
+- **Bases de données** : PostgreSQL (x2 schemas: `footballapp_db`, `footballml_db`)
 - **ML** : Scikit-learn, Pandas, Joblib
-- **Frontend** : Vue.js 3
-- **DevOps** : Docker (Orchestration manuelle via scripts Bash)
+- **Frontend** : Vue.js 3 + Nginx
+- **DevOps** : Docker (Orchestration scripts Bash), OpenSSL
 
 ---
 
-## Critères de Validation
+## Critères de Validation Production
 
-- Séparation physique des bases de données.
-- Authentification sécurisée par JWT.
-- Pipeline ML reproductible.
-- Tests passants sur les endpoints critiques.
+- [ ] HTTPS activé et fonctionnel sur tous les points d'entrée.
+- [ ] Zéro credentials en dur dans le code (100% .env).
+- [ ] Taux de couverture de tests > 80%.
+- [ ] Logs exploitables en cas d'erreur 500.
+
 ---
 
 ## Verification Plan
@@ -91,4 +111,4 @@ graph TD
 ### Manual Verification
 - Execute `bash scripts/run_docker_env.sh` and verify successful orchestration.
 - Check Swagger UI for both services (`/docs`).
-- Verify frontend functionality (Login, Match Predictions).
+- Verify frontend functionality via HTTPS (`https://localhost:8443`).
