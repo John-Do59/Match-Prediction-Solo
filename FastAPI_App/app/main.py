@@ -4,6 +4,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .routes.base import register_routes
 from .core.config import settings
+from .core.limiter import limiter
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 
 # ─────────────────────────────────────────────
@@ -82,6 +85,10 @@ app = FastAPI(
     version=settings.PROJECT_VERSION,
     lifespan=lifespan,
 )
+
+# Configuration de SlowAPI
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,
