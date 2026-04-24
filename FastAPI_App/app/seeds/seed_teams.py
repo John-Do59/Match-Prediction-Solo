@@ -6,7 +6,7 @@ from ..models.team import Team
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
+ 
 TEAMS_DATA = [
     {"name": "Angers",         "logo_url": "https://brandlogos.net/wp-content/uploads/2022/07/angers_sco-logo_brandlogos.net_1yevi-512x512.png"},
     {"name": "Auxerre",        "logo_url": "https://brandlogos.net/wp-content/uploads/2018/12/aj_auxerre-logo_brandlogos.net_fwi5k-512x512.png"},

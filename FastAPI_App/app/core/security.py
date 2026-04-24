@@ -1,3 +1,11 @@
+"""
+Utilitaires de sécurité pour l'authentification et le hachage.
+
+Ce module fournit des fonctions pour :
+- Le hachage sécurisé des mots de passe avec bcrypt.
+- La vérification des mots de passe lors de la connexion.
+- La génération de tokens d'accès JWT (JSON Web Tokens) pour l'authentification des utilisateurs.
+"""
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt

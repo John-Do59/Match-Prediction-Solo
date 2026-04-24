@@ -107,7 +107,7 @@ echo "Lancement de l'ingestion des données (CSV -> SQL)..."
 curl -s -X POST http://localhost:8001/ingest > /dev/null
 echo "Lancement de l'entraînement du modèle initial..."
 curl -s -X POST http://localhost:8001/train > /dev/null
-echo -e "✅ ${GREEN}Intelligence initialisée.${NC}"
+echo -e " ${GREEN}Intelligence initialisée.${NC}"
 
 echo -e "${BLUE}=== Architecture déployée avec succès ! ===${NC}"
 echo -e "Frontend (HTTPS) : https://localhost:8443"

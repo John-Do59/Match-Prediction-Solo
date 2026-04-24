@@ -1,3 +1,12 @@
+"""
+Configuration partagée du système de logging pour les microservices.
+
+Ce module fournit une configuration de logging flexible qui s'adapte à l'environnement :
+- En développement : Sortie colorée et lisible sur la console.
+- En production : Sortie au format JSON pour une intégration facile avec les systèmes de collecte de logs (ELK, CloudWatch, etc.).
+
+L'utilisation principale se fait via la fonction `setup_logging(service_name)`.
+"""
 import logging
 import sys
 import os

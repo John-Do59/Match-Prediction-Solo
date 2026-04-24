@@ -1,3 +1,12 @@
+"""
+Configuration de base partagée utilisant Pydantic Settings.
+
+Ce module définit la classe `CommonSettings` qui sert de base à toutes les configurations
+de microservices du projet. Il gère :
+- La détection automatique de la racine du projet (`ROOT_DIR`).
+- Le chargement des variables d'environnement depuis un fichier `.env` centralisé.
+- Les paramètres communs de sécurité (JWT, algorithmes, expirations).
+"""
 from __future__ import annotations
 
 from pathlib import Path
