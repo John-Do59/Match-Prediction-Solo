@@ -18,6 +18,9 @@ class Settings(CommonSettings):
     DATABASE_URL: str
 
     ML_API_URL: str = "http://localhost:8001"
+    
+    # Token partagé pour l'authentification inter-services
+    SERVICE_TOKEN: str
 
 
 settings = Settings()

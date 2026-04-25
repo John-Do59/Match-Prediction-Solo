@@ -13,10 +13,13 @@ class Settings(CommonSettings):
     PROJECT_NAME: str = "Match Prediction App - ML API"
     
     # On mappe DATABASE_ML_URL vers DATABASE_URL pour compatibilité avec BaseSettings
+    # Pas de valeur par défaut pour forcer la config via env
     DATABASE_URL: str = Field(
-        default="postgresql://localhost/footballprediction_db",
         validation_alias=AliasChoices("DATABASE_ML_URL", "DATABASE_URL"),
     )
+    
+    # Token partagé pour l'authentification inter-services
+    SERVICE_TOKEN: str
     
     CORS_ORIGINS: list[str] = ["*"]
     DATA_DIR:     str = Field(default="../Data/dataset/")

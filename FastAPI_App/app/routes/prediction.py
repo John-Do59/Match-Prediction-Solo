@@ -127,6 +127,7 @@ def _fetch_live_probabilities(home_team: str, away_team: str, season: str) -> Op
                 "away_team": away_team,
                 "season": season,
             },
+            headers={"X-Service-Token": settings.SERVICE_TOKEN},
             timeout=10.0,
         )
         response.raise_for_status()
@@ -212,6 +213,7 @@ async def predict_match(
                     "away_team": data.away_team,
                     "season": data.season,
                 },
+                headers={"X-Service-Token": settings.SERVICE_TOKEN},
             )
         response.raise_for_status()
         ml_result = response.json()

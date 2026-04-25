@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     gcc \
     python3-dev \
     netcat-openbsd \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Copie des requirements

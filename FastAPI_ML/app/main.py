@@ -61,6 +61,21 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.middleware("http")
+async def service_token_middleware(request, call_next):
+    # Les endpoints de santé sont ouverts
+    if request.url.path == "/health":
+        return await call_next(request)
+    
+    token = request.headers.get("X-Service-Token")
+    if token != settings.SERVICE_TOKEN:
+        from fastapi import responses
+        return responses.JSONResponse(
+            status_code=403,
+            content={"detail": "Unauthorized service-to-service communication"}
+        )
+    return await call_next(request)
+
 register_routes(app)
 register_train_routes(app)
 register_ingestion_routes(app)

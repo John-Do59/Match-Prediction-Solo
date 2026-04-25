@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     gcc \
     netcat-openbsd \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # On copie d'abord les requirements pour profiter du cache Docker

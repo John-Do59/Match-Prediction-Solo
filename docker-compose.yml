@@ -50,6 +50,13 @@ services:
       - DB_NAME=${DB_NAME:-footballapp_db}
       - DATABASE_URL=postgresql://${DB_USER:-amaury}:${DB_PASSWORD:-password}@db-app:5432/${DB_NAME:-footballapp_db}
       - ML_API_URL=http://api-ml:8001
+      - SERVICE_TOKEN=${SERVICE_TOKEN:-change-me-in-production}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   api-ml:
     build:
@@ -67,6 +74,13 @@ services:
       - DB_USER=${DB_USER:-amaury}
       - DB_NAME=${DB_ML_NAME:-footballml_db}
       - DATABASE_ML_URL=postgresql://${DB_USER:-amaury}:${DB_PASSWORD:-password}@db-ml:5432/${DB_ML_NAME:-footballml_db}
+      - SERVICE_TOKEN=${SERVICE_TOKEN:-change-me-in-production}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   frontend:
     build:
