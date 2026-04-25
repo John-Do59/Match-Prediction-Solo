@@ -10,14 +10,12 @@ services:
     volumes:
       - postgres_app_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432" # Changé pour éviter conflit si 5432 est pris en local
+      - "5433:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-amaury} -d ${DB_NAME:-footballapp_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
-    networks:
-      - match-network
 
   db-ml:
     image: postgres:15
@@ -36,8 +34,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    networks:
-      - match-network
 
   api-app:
     build:
@@ -50,11 +46,10 @@ services:
     env_file: .env
     environment:
       - DB_HOST=db-app
-      - DB_PORT=5432
+      - DB_USER=${DB_USER:-amaury}
+      - DB_NAME=${DB_NAME:-footballapp_db}
       - DATABASE_URL=postgresql://${DB_USER:-amaury}:${DB_PASSWORD:-password}@db-app:5432/${DB_NAME:-footballapp_db}
       - ML_API_URL=http://api-ml:8001
-    networks:
-      - match-network
 
   api-ml:
     build:
@@ -69,10 +64,9 @@ services:
     env_file: .env
     environment:
       - DB_HOST=db-ml
-      - DB_PORT=5432
+      - DB_USER=${DB_USER:-amaury}
+      - DB_NAME=${DB_ML_NAME:-footballml_db}
       - DATABASE_ML_URL=postgresql://${DB_USER:-amaury}:${DB_PASSWORD:-password}@db-ml:5432/${DB_ML_NAME:-footballml_db}
-    networks:
-      - match-network
 
   frontend:
     build:
@@ -87,13 +81,7 @@ services:
     depends_on:
       - api-app
       - api-ml
-    networks:
-      - match-network
 
 volumes:
   postgres_app_data:
   postgres_ml_data:
-
-networks:
-  match-network:
-    driver: bridge

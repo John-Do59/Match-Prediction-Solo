@@ -4,84 +4,88 @@ Ce document détaille l'implémentation de Docker Compose dans le projet **Match
 
 ---
 
-## 1. Philosophie : Database-per-service
+## 1. Schéma Mental de l'Architecture
 
-Contrairement à l'approche initiale (une seule instance Postgres avec plusieurs bases), nous avons migré vers un modèle **Database-per-service**. 
+Voici comment les services interagissent entre eux :
 
-### Pourquoi ce choix ?
-- **Isolation Totale** : Une corruption ou une saturation de la base ML (très sollicitée par les ingestions de données) n'impactera jamais la base Applicative (gestion des utilisateurs et de l'authentification).
-- **Maintenance Indépendante** : Chaque service peut être redémarré ou mis à jour séparément.
-- **Scalabilité** : Chaque instance Postgres possède son propre volume et ses propres ressources système.
-
-### Implémentation
-- `match-db-app` : Dédiée à l'API principale (Users, Auth, History).
-- `match-db-ml` : Dédiée à l'IA (Matches, Stats, Predictions).
+```mermaid
+graph TD
+    User((Utilisateur)) -->|HTTPS/8443| Frontend[match-frontend]
+    Frontend -->|Proxy /api/v1| API_App[match-api-app]
+    Frontend -->|Proxy /ml/v1| API_ML[match-api-ml]
+    
+    API_App -->|SQL| DB_App[(match-db-app)]
+    API_App -->|HTTP| API_ML
+    
+    API_ML -->|SQL| DB_ML[(match-db-ml)]
+    API_ML -->|Volume| Data[./Data]
+```
 
 ---
 
-## 2. Le Cycle de Démarrage (Orchestration Robuste)
+## 2. Philosophie : Database-per-service (Découplage)
 
-L'un des plus grands défis en Docker est de s'assurer qu'une application ne démarre pas avant que sa base de données ne soit prête.
+Nous utilisons une approche **Database-per-service**. Chaque microservice possède sa propre instance PostgreSQL isolée.
+
+### Pourquoi ce choix ?
+- **Isolation des pannes** : Une saturation du service ML n'impacte pas l'authentification des utilisateurs.
+- **Maintenance Indépendante** : Possibilité de mettre à jour les versions de base de données séparément.
+- **Zéro Script Custom** : Pas besoin de scripts complexes pour créer plusieurs bases dans une seule instance.
+
+---
+
+## 3. Pourquoi Docker Compose plutôt que des scripts Shell ?
+
+Passer de `run_docker_env.sh` à `docker-compose.yml` est une montée en gamme technique :
+
+| Caractéristique | Script Shell | Docker Compose |
+| :--- | :--- | :--- |
+| **Paradigme** | Impératif (fait ceci, puis cela) | Déclaratif (voici l'état souhaité) |
+| **Gestion des erreurs** | Complexe et manuelle | Native (restarts, healthchecks) |
+| **Réseau** | Création manuelle requise | Réseau par défaut automatique |
+| **Idempotence** | Difficile à garantir | Native (ne recrée que ce qui a changé) |
+| **CI/CD** | Difficile à intégrer | Standard de l'industrie |
+
+---
+
+## 4. Le Cycle de Démarrage (Orchestration Robuste)
 
 ### Healthchecks Postgres
-Dans le fichier `docker-compose.yml`, nous utilisons des tests de santé (`healthcheck`) :
+Nous utilisons l'outil natif `pg_isready` pour garantir que Postgres est prêt :
 ```yaml
 healthcheck:
   test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
-  interval: 5s
-  timeout: 5s
-  retries: 5
-```
-Cela permet à Docker Compose de savoir exactement quand le serveur Postgres accepte des connexions.
-
-### Dépendances intelligentes
-Les APIs utilisent la condition `service_healthy` :
-```yaml
-depends_on:
-  db-app:
-    condition: service_healthy
 ```
 
-### L'Entrypoint Automatisé (`docker-entrypoint.sh`)
-Chaque API utilise un script de démarrage qui réalise deux actions critiques avant de lancer l'application :
-1. **Wait-for-it** : Utilise `nc` (netcat) pour vérifier que le port 5432 est bien ouvert sur l'hôte cible (`db-app` ou `db-ml`).
-2. **Auto-Migrations** : Lance `alembic upgrade head` pour garantir que le schéma de la base est toujours synchronisé avec le code Python.
+### L'Entrypoint Intelligent (`docker-entrypoint.sh`)
+Chaque API utilise un script de démarrage qui :
+1. **Vérifie la disponibilité** : Utilise `pg_isready` pour attendre que SA base spécifique soit prête.
+2. **Auto-Migrations** : Lance `alembic upgrade head` avant le démarrage de l'application.
 
 ---
 
-## 3. Gestion des Volumes et Persistance
-
-Nous utilisons deux types de volumes dans cette architecture :
-
-### Volumes Nommés (Persistance)
-- `postgres_app_data` & `postgres_ml_data` : Ces volumes sont gérés par Docker. Ils garantissent que vos données (utilisateurs, matchs entraînés) ne sont pas supprimées même si vous supprimez les conteneurs.
-
-### Bind Mounts (Partage de données)
-- `./Data:/app/Data:ro` : Le dossier `Data/` de votre machine est monté dans l'image ML en **lecture seule**. Cela permet à l'IA d'accéder aux CSV sans les copier dans l'image (gain de place et de temps de build).
-- `./ssl:/etc/nginx/ssl:ro` : Partage des certificats SSL avec le serveur Nginx.
-
----
-
-## 4. Réseautage et Communication
-
-Tous les services sont connectés au réseau `match-network`. 
+## 5. Réseautage et Communication
 
 ### Résolution de noms
-À l'intérieur du réseau Docker, vous n'utilisez plus d'adresses IP ou `localhost`. Vous appelez les services par leur nom défini dans le Compose :
-- L'API App contacte la DB via `postgresql://.../db-app:5432`.
-- L'API App contacte l'IA via `http://api-ml:8001`.
+Les services communiquent via leurs noms de services définis dans le Compose. 
+Format de l'URL PostgreSQL : 
+`postgresql://USER:PASSWORD@HOST:PORT/DB_NAME`
+
+*Exemple pour l'API App* : `postgresql://amaury:password@db-app:5432/footballapp_db`
+
+### Nginx en Reverse Proxy
+Le conteneur `frontend` joue le rôle de point d'entrée unique. Il gère la terminaison SSL et redirige les requêtes vers les bons backends, isolant ainsi les APIs du monde extérieur.
 
 ---
 
-## 5. Commandes Utiles
+## 6. Commandes Utiles
 
 | Action | Commande |
 | :--- | :--- |
 | **Démarrer tout** | `docker-compose up --build` |
 | **Arrêter tout** | `docker-compose down` |
-| **Voir les logs** | `docker-compose logs -f [nom-service]` |
-| **Réinitialiser les DB** | `docker-compose down -v` (Attention : supprime les données) |
+| **Réinitialiser les DB** | `docker-compose down -v` |
 
 ---
 
-**Conclusion** : Cette architecture transforme le projet en un système prêt pour la production, où chaque composant est isolé, auto-réparable et facile à déployer.
+**Conclusion** : Cette architecture transforme le projet en un système microservices crédible, aligné sur les meilleures pratiques d'infrastructure actuelles.
