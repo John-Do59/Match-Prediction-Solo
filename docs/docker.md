@@ -75,35 +75,68 @@ Au démarrage, le script d'orchestration :
 
 ---
 
-## Guide d'Utilisation
+## Orchestration Professionnelle avec Docker Compose
 
-### Lancer l'environnement complet
+Bien que l'apprentissage manuel via des scripts Shell soit formateur, l'orchestration moderne repose sur **Docker Compose**. Cela permet de gérer tout l'écosystème avec une seule commande, tout en automatisant les tâches complexes.
+
+### Pourquoi utiliser Compose ?
+
+- **Simplicité** : `docker-compose up` remplace des centaines de lignes de scripts Shell.
+- **Résilience** : Gestion automatique des redémarrages et des dépendances.
+- **Réseau natif** : Les services communiquent via leurs noms (`db`, `api-app`, `api-ml`).
+- **Initialisation Intégrée** : La création des multiples bases de données et les migrations Alembic sont gérées automatiquement au démarrage.
+
+---
+
+## Guide d'Utilisation (Nouveau Flux)
+
+### 1. Préparation
+
+Assurez-vous d'avoir votre fichier `.env` configuré (copiez `.env.example`). Les URLs doivent pointer vers les noms des services (ex: `db` au lieu de `localhost`).
+
+### 2. Lancer tout l'environnement
+
+```bash
+docker-compose up --build
+```
+
+*Cette commande unique :*
+
+1. **Build** toutes les images (App, ML, Front).
+2. **Initialise** Postgres avec les bases `footballapp_db` et `footballml_db`.
+3. **Attend** que la DB soit prête.
+4. **Exécute** les migrations Alembic automatiquement.
+5. **Démarre** tous les services.
+
+### 3. Initialiser les données (Une seule fois)
+
+Une fois que tout tourne, lancez l'ingestion et l'entraînement initial :
+
+```bash
+# Ingestion des données (CSV -> SQL)
+curl -X POST http://localhost:8001/ingest
+
+# Entraînement du modèle
+curl -X POST http://localhost:8001/train
+```
+
+---
+
+## Ancienne Méthode (Orchestration Manuelle)
+
+Si vous souhaitez comprendre les coulisses de Docker sans l'abstraction de Compose, vous pouvez toujours utiliser les scripts manuels :
+
+### Lancer l'environnement manuel
 
 ```bash
 chmod +x scripts/*.sh
 ./scripts/run_docker_env.sh
 ```
 
-*Cette commande fait tout : Nettoyage -> Réseau -> BDD -> Build -> Migrations -> Seeds -> Ingestion & Training ML.*
-
 ### Nettoyer tout l'environnement
 
 ```bash
 ./scripts/docker_clean.sh
-```
-
-*Arrête les conteneurs et supprime le réseau pour libérer les ressources.*
-
-### Exécuter les tests unitaires (Dans Docker)
-
-Il est crucial de tester dans Docker car c'est l'environnement qui se rapproche le plus de la production.
-
-```bash
-# API Principale
-docker exec api-app pytest tests/
-
-# API Machine Learning
-docker exec api-ml pytest tests_ml/
 ```
 
 ---
