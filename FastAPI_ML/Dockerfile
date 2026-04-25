@@ -18,7 +18,6 @@ COPY shared/ /app/shared/
 
 # Copie du code de l'application
 COPY FastAPI_ML/ /app/FastAPI_ML/
-COPY Data/ /app/Data/
 
 # On se place dans le dossier de l'app ML
 WORKDIR /app/FastAPI_ML

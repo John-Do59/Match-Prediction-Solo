@@ -72,6 +72,7 @@ docker run -d \
 docker run -d \
   --name api-ml \
   --network match-network \
+  -v "$(pwd)/Data:/app/Data:ro" \
   -p 8001:8001 \
   --env-file .env \
   -e DATABASE_ML_URL=postgresql://amaury:password@postgres-db:5432/footballml_db \

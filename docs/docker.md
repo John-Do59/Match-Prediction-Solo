@@ -119,5 +119,27 @@ docker exec api-ml pytest tests_ml/
 
 ---
 
+## Bonnes Pratiques : Le fichier `.dockerignore`
+
+Le fichier `.dockerignore` est crucial pour la santé de votre architecture micro-services. Il remplit trois rôles majeurs :
+
+### 1. Sécurité
+
+Il empêche la copie de fichiers sensibles comme le `.env` à l'intérieur de l'image. Les secrets doivent être passés via des variables d'environnement au runtime (ex: `--env-file .env`), et non stockés dans le système de fichiers de l'image.
+
+### 2. Performance (Build Speed)
+
+En ignorant les dossiers lourds comme `.git/`, `node_modules/` ou `Data/`, vous réduisez la taille du "build context" envoyé au démon Docker. Cela rend le build beaucoup plus rapide et réduit la taille finale des images.
+
+### 3. Intégrité des Migrations (Alembic)
+
+**Attention** : Il ne faut jamais ignorer les fichiers de migration (`alembic/versions/*.py`) individuellement. Alembic a besoin de toute la chaîne de fichiers pour fonctionner. Si vous n'en gardez qu'un seul (comme le HEAD), le conteneur ne pourra pas mettre à jour la base de données.
+
+### Stratégie pour les Données ML
+
+Pour l'API ML, nous avons choisi d'ignorer le dossier `Data/` dans l'image mais de le monter comme un **volume en lecture seule** (`-v "$(pwd)/Data:/app/Data:ro"`) lors du lancement du conteneur. Cela permet d'accéder aux datasets CSV sans alourdir l'image Docker.
+
+---
+
 **Note sur Docker Compose** : En maîtrisant ces commandes manuelles, vous comprenez le "coeur" de Docker. Dans un vrai projet pro, on utiliserait Docker Compose pour simplifier, mais savoir le faire à la main fait de vous un expert.
 fait automatiquement. Tu peux maintenant utiliser ces scripts pour tester ton projet dans un environnement de production simulé sur ton Mac.

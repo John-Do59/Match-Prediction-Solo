@@ -1,15 +1,33 @@
+# Python
 venv/
 .venv/
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.db
-*.sqlite3
+
+# Env
 .env
-.ipynb_checkpoints/
-.pytest_cache/
+.env.*
+!.env.example
+
+# IDE & Git
 .vscode/
 .idea/
+.git/
+.gitignore
+
+# Tests & cache
+.pytest_cache/
+.ipynb_checkpoints/
+
+# DB locale
+*.db
+*.sqlite3
+
+# Logs
+*.log
+
+# Propreté Docker
 Dockerfile
 .dockerignore
