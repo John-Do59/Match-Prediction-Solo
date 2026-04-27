@@ -79,6 +79,30 @@ docker run -d \
   match-frontend
 ```
 
+### Étape D : Lancer les APIs
+
+Une fois le réseau, la base de données et le frontend prêts, lancez les services backend :
+
+```bash
+# API Application (Port 8000)
+docker run -d \
+  --name api-app \
+  --network match-network \
+  -p 8000:8000 \
+  --env-file .env.dev \
+  -e ENV=dev \
+  match-api-app
+
+# API Machine Learning (Port 8001)
+docker run -d \
+  --name api-ml \
+  --network match-network \
+  -p 8001:8001 \
+  --env-file .env.dev \
+  -e ENV=dev \
+  match-api-ml
+```
+
 ---
 
 ## 4. Choix Techniques & Mentalité DevOps
