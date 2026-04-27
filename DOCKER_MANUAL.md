@@ -66,8 +66,22 @@ docker network create match-network
 ### Étape B : Lancer la Base de Données
 
 ```bash
-docker run -d --name postgres-db --network match-network -v postgres_data:/var/lib/postgresql/data -e POSTGRES_USER=amaury -e POSTGRES_PASSWORD=password -e POSTGRES_DB=footballapp_db -p 5432:5432 postgres:15
+# Lancement avec création automatique des deux bases (via script d'init)
+docker run -d \
+  --name postgres-db \
+  --network match-network \
+  -v match_prediction_pg_data:/var/lib/postgresql/data \
+  -v "$(pwd)/scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql" \
+  -e POSTGRES_USER=amaury \
+  -e POSTGRES_PASSWORD=password \
+  -e POSTGRES_DB=postgres \
+  -p 5432:5432 \
+  postgres:15
 ```
+
+> [!NOTE]
+> Nous utilisons `POSTGRES_DB=postgres` comme base par défaut, et le script `init-db.sql` crée ensuite `footballapp_db` et `footballml_db`.
+
 
 ### Étape C : Lancer le Frontend (Choix de l'ENV)
 
