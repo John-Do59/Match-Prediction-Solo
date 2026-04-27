@@ -111,6 +111,12 @@ docker run -d \
   -p 8082:8080 \
   -p 8443:8443 \
   match-frontend
+
+> [!TIP]
+> **Astuce rapide (sans SSL)** : Si vous voulez tester rapidement sans configurer les certificats, vous pouvez lancer le frontend uniquement sur le port 8080 :
+> ```bash
+> docker run -d --name frontend-vue --network match-network -p 8082:8080 match-frontend
+> ```
 ```
 
 ---
@@ -139,6 +145,12 @@ curl -X POST http://localhost:8001/train
 
 ### Accès
 
-* **Application Web** : [https://localhost:8443](https://localhost:8443)
+* **Application Web (HTTPS)** : [https://localhost:8443](https://localhost:8443)
+* **Application Web (HTTP)** : [http://localhost:8082](http://localhost:8082)
 * **Documentation API App** : [http://localhost:8000/docs](http://localhost:8000/docs)
 * **Documentation API ML** : [http://localhost:8001/docs](http://localhost:8001/docs)
+
+---
+
+> [!NOTE]
+> **Mentalité DevOps** : Ne jamais supprimer une configuration fonctionnelle, mais la rendre optionnelle ou configurable (Dev/Staging/Prod).
