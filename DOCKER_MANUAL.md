@@ -99,5 +99,22 @@ docker run -d \
 
 ---
 
+## 6. Arrêt et Nettoyage Final
+
+À la fin de votre démonstration ou de votre session de travail, voici comment tout couper proprement :
+
+```bash
+# Arrêt des conteneurs
+docker stop frontend-vue api-app api-ml postgres-db
+
+# Suppression des conteneurs
+docker rm frontend-vue api-app api-ml postgres-db
+
+# Suppression du réseau
+docker network rm match-network
+```
+
+---
+
 > [!NOTE]
 > **Mentalité DevOps** : Ne jamais supprimer une configuration fonctionnelle, mais la rendre optionnelle ou configurable (Dev/Staging/Prod).
