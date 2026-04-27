@@ -8,6 +8,9 @@ echo -e "${RED}=== Nettoyage complet de l'environnement Match Prediction App ===
 
 # 1. Utilisation de Docker Compose pour un arrêt propre
 echo "Arrêt des services et suppression des volumes avec Docker Compose..."
+# Redirige vers le nouveau script de démarrage DEV
+chmod +x scripts/start-dev.sh
+./scripts/start-dev.sh
 docker-compose down -v --remove-orphans
 
 # 2. Nettoyage des anciennes images non utilisées (optionnel mais recommandé)
@@ -16,8 +19,17 @@ docker image prune -f
 
 # 3. Suppression des conteneurs orphelins (sécurité supplémentaire)
 # On cherche les conteneurs qui pourraient être restés de l'ancienne orchestration
-echo "Recherche de conteneurs résiduels..."
+echo "--- [API APP] ---"
+docker exec api-app pytest tests/
+
+echo ""
+echo "--- [API ML] ---"
+docker exec api-ml pytest tests_ml/
 docker stop frontend-vue api-app api-ml postgres-db 2>/dev/null
 docker rm frontend-vue api-app api-ml postgres-db 2>/dev/null
+
+# 4. Suppression du réseau
+echo "Suppression du réseau match-network..."
+docker network rm match-network 2>/dev/null
 
 echo -e "${RED}=== Nettoyage terminé. L'environnement est comme neuf. ===${NC}"
