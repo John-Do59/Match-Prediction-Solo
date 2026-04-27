@@ -4,8 +4,8 @@
 echo "🧪 Lancement des tests unitaires..."
 
 echo "--- [API APP] ---"
-docker exec match-api-app pytest tests/
+docker exec api-app pytest tests/
 
 echo ""
 echo "--- [API ML] ---"
-docker exec match-api-ml pytest tests_ml/
+docker exec api-ml pytest tests_ml/

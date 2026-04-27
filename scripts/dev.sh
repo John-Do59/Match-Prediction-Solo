@@ -9,5 +9,6 @@ if [ ! -f .env ]; then
     cp .env.example .env
 fi
 
-# Lance Docker Compose
-docker-compose up --build
+# Redirige vers le nouveau script de démarrage DEV
+chmod +x scripts/start-dev.sh
+./scripts/start-dev.sh
