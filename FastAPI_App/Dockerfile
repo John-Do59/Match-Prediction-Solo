@@ -6,6 +6,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     libpq-dev \
     gcc \
+    postgresql-client \
     netcat-openbsd \
     curl \
     && rm -rf /var/lib/apt/lists/*

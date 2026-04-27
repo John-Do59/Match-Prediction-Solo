@@ -41,6 +41,22 @@ Deux scripts sont à votre disposition pour lancer tout l'écosystème d'un coup
 
 Si vous préférez lancer les conteneurs un par un, voici la logique à suivre.
 
+### Étape 0 : Build des Images (Requis avant le premier lancement)
+
+Si vous n'utilisez pas les scripts automatisés, vous devez d'abord construire les images localement :
+
+```bash
+# Build API App
+docker build -t match-api-app -f FastAPI_App/Dockerfile .
+
+# Build API ML
+docker build -t match-api-ml -f FastAPI_ML/Dockerfile .
+
+# Build Frontend
+docker build -t match-frontend -f match_prediction_app-front/Dockerfile .
+```
+
+
 ### Étape A : Création du réseau
 
 ```bash
@@ -125,9 +141,10 @@ curl -X POST http://localhost:8001/train
 ## 4. Choix Techniques & Mentalité DevOps
 
 1. **Entrypoint Dynamique** : Le frontend utilise un script `docker-entrypoint.sh` qui choisit entre `nginx.dev.conf` et `nginx.prod.conf` au moment du démarrage selon la valeur de `ENV`.
-2. **Séparation des Secrets** : Les fichiers `.env.dev` et `.env.prod` permettent de ne pas mélanger les accès de test avec les accès sécurisés.
-3. **Zéro Suppression** : Toute la logique SSL a été conservée. Elle est simplement rendue conditionnelle pour faciliter les démos locales.
-4. **Idempotence** : Les scripts de démarrage nettoient les anciens conteneurs avant de relancer l'infra.
+2. **Attente de la Base de Données (Wait-for-DB)** : Les APIs utilisent `pg_isready` (via le paquet `postgresql-client`) dans leur `docker-entrypoint.sh`. Cela garantit que l'application ne tente pas de lancer les migrations Alembic avant que PostgreSQL ne soit totalement prêt à accepter des connexions.
+3. **Séparation des Secrets** : Les fichiers `.env.dev` et `.env.prod` permettent de ne pas mélanger les accès de test avec les accès sécurisés.
+4. **Zéro Suppression** : Toute la logique SSL a été conservée. Elle est simplement rendue conditionnelle pour faciliter les démos locales.
+5. **Idempotence** : Les scripts de démarrage nettoient les anciens conteneurs avant de relancer l'infra.
 
 ---
 
