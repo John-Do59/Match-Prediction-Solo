@@ -103,6 +103,23 @@ docker run -d \
   match-api-ml
 ```
 
+### Étape E : Initialisation des Données
+
+Une fois les services lancés, vous devez préparer la base de données :
+
+```bash
+# 1. Appliquer les migrations Alembic (Schémas SQL)
+docker exec api-app alembic upgrade head
+docker exec api-ml alembic upgrade head
+
+# 2. Charger les référentiels (Équipes)
+docker exec api-app python -m app.seeds.seed_teams
+
+# 3. Ingestion et Entraînement du modèle ML
+curl -X POST http://localhost:8001/ingest
+curl -X POST http://localhost:8001/train
+```
+
 ---
 
 ## 4. Choix Techniques & Mentalité DevOps
