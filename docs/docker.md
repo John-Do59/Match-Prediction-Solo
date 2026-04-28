@@ -1,6 +1,31 @@
-# Guide d'Apprentissage : Docker Multi-Environnement
+# Guide d'Apprentissage : Docker et Micro-services
 
 Ce document explique le fonctionnement de Docker et détaille l'implémentation de l'architecture micro-services dans le projet **Match Prediction App**.
+
+---
+
+## Introduction à Docker
+
+### C'est quoi ?
+
+Docker est une plateforme qui permet d'emballer une application et toutes ses dépendances (librairies, configuration, environnement) dans une unité isolée appelée **Conteneur**.
+
+### Pourquoi Docker ?
+
+- **"It works on my machine"** : Garanti que si ça tourne sur ton ordi, ça tournera partout (Serveur, Cloud, PC d'un collègue).
+- **Isolation** : Chaque micro-service vit dans sa propre boîte. Si l'API ML plante, elle ne fait pas tomber la base de données.
+- **Légèreté** : Contrairement à une machine virtuelle, Docker partage les ressources de ton ordinateur sans simuler tout un système d'exploitation.
+
+### Lexique Essentiel
+
+| Terme | Définition simple |
+| :--- | :--- |
+| **Image** | C'est le "plan" ou le moule. C'est un fichier statique qui contient ton code et tes réglages. |
+| **Conteneur** | C'est l'image en train de tourner. C'est l'instance vivante de ton application. |
+| **Dockerfile** | La recette de cuisine qui explique comment transformer ton code en image. |
+| **Volume** | Un disque dur persistant. Sert à garder les données (ex: ta BDD) même si le conteneur est supprimé. |
+| **Réseau (Network)** | Un câble invisible qui relie tes conteneurs entre eux (`match-network`). |
+| **Orchestration** | L'art de coordonner le démarrage et la communication entre plusieurs conteneurs. |
 
 ---
 
@@ -18,7 +43,7 @@ Notre implémentation supporte deux environnements distincts pilotés par des sc
 ### Volumes et Persistance
 
 - **match_prediction_pg_data** : Volume Docker persistant pour les données PostgreSQL.
-- **ssl (local)** : Dossier contenant les certificats SSL, monté en lecture seule dans le frontend.
+- **ssl (local)** : Dossier contenant les certificats SSL, montés en lecture seule dans le frontend.
 
 ---
 
@@ -30,8 +55,8 @@ Le projet sépare strictement les configurations de développement et de product
 
 | Fichier | Usage | Sécurité |
 | :--- | :--- | :--- |
-| `.env.dev` | Développement local | HTTP, ports standards |
-| `.env.prod` | Simulation Production | HTTPS obligatoire, secrets renforcés |
+| `.env.dev` | Développement local | Simple, HTTP |
+| `.env.prod` | Simulation Production | Renforcée, HTTPS obligatoire |
 
 **Sécurité des Secrets** : Les credentials (`POSTGRES_PASSWORD`) sont injectés via l'argument `--env-file` de Docker. Cela garantit qu'ils n'apparaissent jamais dans les logs de build ou l'inspection des conteneurs.
 
@@ -67,11 +92,11 @@ Ce mode simule un environnement de production avec HTTPS activé.
 
 ## Bonnes Pratiques : Le fichier `.dockerignore`
 
-Le fichier `.dockerignore` est crucial pour la sécurité :
+Le fichier `.dockerignore` est crucial pour la santé de votre architecture :
 
 1. **Isolation des Secrets** : Il empêche la copie des fichiers `.env.*` dans l'image. Les secrets sont fournis uniquement au runtime.
 2. **Performance** : Il ignore les dossiers lourds (`node_modules`, `.git`, `venv`) pour accélérer le build.
-3. **Persistance** : Les données volumineuses (datasets ML) ne sont pas incluses dans l'image mais montées via des volumes.
+3. **Intégrité des Migrations (Alembic)** : Il ne faut jamais ignorer les fichiers de migration (`alembic/versions/`).
 
 ---
 
