@@ -39,6 +39,7 @@ services:
     build:
       context: .
       dockerfile: FastAPI_App/Dockerfile
+    image: match-prediction-app:ultra-light
     container_name: match-api-app
     depends_on:
       db-app:
@@ -62,6 +63,7 @@ services:
     build:
       context: .
       dockerfile: FastAPI_ML/Dockerfile
+    image: match-prediction-ml:ultra-light
     container_name: match-api-ml
     depends_on:
       db-ml:
@@ -86,6 +88,7 @@ services:
     build:
       context: .
       dockerfile: match_prediction_app-front/Dockerfile
+    image: match-frontend:ultra-light
     container_name: match-frontend
     ports:
       - "8082:8080"
