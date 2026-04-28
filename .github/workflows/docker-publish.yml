@@ -66,8 +66,8 @@ jobs:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           push: true
-          tags: ${{ id.meta.outputs.tags }}
-          labels: ${{ id.meta.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           # Optimisation : Utilisation du cache GitHub Actions pour accélérer les builds futurs
           cache-from: type=gha
           cache-to: type=gha,mode=max
