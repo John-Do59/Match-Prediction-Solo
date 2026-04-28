@@ -12,18 +12,18 @@ docker network rm match-network 2>/dev/null
 docker network create match-network
 
 # 3. Base de données
+# Utilisation du volume init-db.sql pour créer les bases secondaires automatiquement
 docker run -d \
   --name postgres-db \
   --network match-network \
-  -v postgres_data:/var/lib/postgresql/data \
-  -e POSTGRES_USER=amaury \
-  -e POSTGRES_PASSWORD=password \
-  -e POSTGRES_DB=footballapp_db \
+  -v match_prediction_pg_data:/var/lib/postgresql/data \
+  -v "$(pwd)/scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql" \
+  --env-file .env.dev \
   -p 5432:5432 \
   postgres:15
 
+echo "⏳ Attente du démarrage de PostgreSQL..."
 sleep 5
-docker exec -it postgres-db psql -U amaury -d footballapp_db -c "CREATE DATABASE footballml_db;"
 
 # 4. Build (Optionnel si déjà fait, mais recommandé pour DEV)
 docker build -t match-api-app -f FastAPI_App/Dockerfile .

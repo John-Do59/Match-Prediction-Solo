@@ -156,7 +156,7 @@ npm run serve
 ### Résolution de l'Erreur d'Inscription ("Load failed")
 
 - **Frontend** : Modification de `src/api/client.js` pour utiliser explicitement `127.0.0.1` à la place de `localhost`. Cela résout les échecs de résolution DNS IPv6 (::1) sur macOS qui interrompaient les requêtes `POST` avant d'atteindre le serveur.
-- **Optimisation CORS** : Remplacement du regex générique par une déclaration explicite des origines autorisées (`http://localhost:8080`, etc.) dans `main.py`, garantissant une compatibilité totale avec l'envoi de cookies et d'en-têtes d'autorisation (`allow_credentials=True`).
+- **Optimisation CORS** : Remplacement du regex générique par une déclaration explicite des origines autorisées (`http://localhost:8082`, etc.) dans `main.py`, garantissant une compatibilité totale avec l'envoi de cookies et d'en-têtes d'autorisation (`allow_credentials=True`).
 
 ### Infrastructure & Base de Données
 
@@ -284,4 +284,30 @@ npm run serve
 
 ---
 
-**État du projet :** Production-Ready (Infrastructure). Prêt pour le déploiement sur serveur réel.
+## Phase : Docker Multi-Environnement & Sécurisation des Secrets (Avril 2026)
+
+### Centralisation des Credentials (PostgreSQL)
+
+- **Isolation des Secrets** : Déplacement de `POSTGRES_USER`, `POSTGRES_PASSWORD` et `POSTGRES_DB` des scripts shell vers les fichiers `.env.dev` et `.env.prod`.
+- **Méthode d'Injection** : Utilisation systématique de l'argument `--env-file` dans toutes les commandes `docker run`.
+- **Suppression des Fuites de Logs** : Retrait des commandes `docker inspect` et des `echo` affichant les mots de passe dans la documentation et les scripts.
+
+### Unification des Workflows (DEV vs PROD)
+
+- **Fichiers .env distincts** :
+    - `.env.dev` : Mode développement (HTTP sur localhost:8082).
+    - `.env.prod` : Mode production simulé (HTTPS sur localhost:8443).
+- **Scripts de Pilotage** : Mise à jour de `scripts/start-dev.sh` et `scripts/start-prod.sh` pour servir de source de vérité unique, alignée sur `DOCKER_MANUAL.md`.
+
+### Fiabilisation de l'Initialisation DB
+
+- **Initialisation Automatique** : Utilisation du répertoire `/docker-entrypoint-initdb.d/` de l'image Postgres officielle pour exécuter `init-db.sql`.
+- **Évitement du Conflit de Volume** : Ajout de documentation explicative sur le fait que `init-db.sql` n'est joué que si le volume `match_prediction_pg_data` est vide.
+
+### Correctifs de Runtime
+
+- **Compatibilité Alpine** : Correction du point d'entrée du Frontend (`docker-entrypoint.sh`) en remplaçant `#!/bin/bash` par `#!/bin/sh` pour assurer le support sur les images légères Alpine Linux.
+
+---
+
+**État du projet :** Infrastructure sécurisée et multi-environnement prête.

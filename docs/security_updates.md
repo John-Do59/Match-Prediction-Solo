@@ -58,16 +58,23 @@ Pour respecter les bonnes pratiques de sécurité (Least Privilege), les contene
 
 ---
 
-## Comment vérifier ?
+## Sécurisation des Secrets et Multi-Environnement
 
-1. **Test Rate Limit** : Tentez de vous connecter 6 fois de suite rapidement. Vous recevrez une erreur `429`.
-2. **Test Mot de Passe** : Essayez de créer un compte avec "123456". La validation Pydantic bloquera la requête avec une erreur `422`.
-3. **Test Docker User** :
+### 1. Centralisation des Identifiants de Base de Données
 
-   ```bash
-   docker exec -it api-app whoami
-   # Devrait retourner : appuser
-   ```
+Afin d'éviter que des credentials ne soient exposés dans l'historique des commandes shell (`ps -aux`, `docker inspect` ou historique bash), nous avons centralisé toute la configuration sensible.
+
+- **Fichiers `.env`** : Les variables `POSTGRES_USER`, `POSTGRES_PASSWORD` et `POSTGRES_DB` sont désormais stockées exclusivement dans `.env.dev` et `.env.prod`.
+- **Injection Propre** : Utilisation de `docker run --env-file <file>`. Cette méthode est préférable au passage de variables via `-e` car elle ne laisse pas de trace dans la liste des processus du système hôte.
+
+### 2. Gestion des Environnements (Isolation)
+
+- **Mode DEV** : Utilise `.env.dev`, expose les services sur les ports standards (8000, 8001, 8082) en HTTP.
+- **Mode PROD** : Utilise `.env.prod`, force l'usage de HTTPS (8443) et utilise des secrets renforcés.
+
+### 3. Protection contre les Injections de Secrets dans les Images
+
+- **.dockerignore** : Les fichiers `.env`, `.env.dev` et `.env.prod` sont systématiquement ignorés lors du build. Les secrets ne sont **jamais** intégrés à l'image statique. Ils sont fournis dynamiquement au conteneur lors de son démarrage.
 
 ---
-*Dernière mise à jour : 23 Avril 2026*
+*Dernière mise à jour : 28 Avril 2026*

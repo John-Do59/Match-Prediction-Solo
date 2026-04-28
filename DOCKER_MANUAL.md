@@ -29,7 +29,7 @@ Deux scripts sont à votre disposition pour lancer tout l'écosystème d'un coup
 ### Mode PROD (Simulation de production)
 
 * **Port** : [https://localhost:8443](https://localhost:8443)
-* **Sécurité** : SSL activé (nécessite le dossier `ssl/`), secrets renforcés.
+* **Sécurité** : SSL activé (nécessite le dossier ssl/), secrets renforcés.
 
 ```bash
 ./scripts/start-prod.sh
@@ -56,34 +56,70 @@ docker build -t match-api-ml -f FastAPI_ML/Dockerfile .
 docker build -t match-frontend -f match_prediction_app-front/Dockerfile .
 ```
 
+### Étape 1 : Nettoyage de l'Environnement (Requis avant chaque relancement)
 
-### Étape A : Création du réseau
+Avant de lancer les conteneurs, vérifiez et nettoyez les éventuels résidus d'une session précédente.
+Docker refusera de créer un conteneur si un conteneur du même nom existe déjà, même à l'état arrêté.
+
+#### Vérifier ce qui existe déjà
+
+```bash
+# Voir les conteneurs actifs ET arrêtés
+docker ps -a | grep -E "postgres-db|frontend-vue|api-app|api-ml"
+
+# Voir si le réseau existe déjà
+docker network ls | grep match-network
+```
+
+#### Nettoyer les conteneurs et le réseau
+
+```bash
+# Arrêt des conteneurs (si encore actifs)
+docker stop frontend-vue api-app api-ml postgres-db 2>/dev/null; \
+docker rm frontend-vue api-app api-ml postgres-db 2>/dev/null; \
+docker network rm match-network 2>/dev/null; \
+echo "✅ Environnement nettoyé, prêt pour un nouveau lancement"
+```
+
+> [!NOTE]
+> Le `2>/dev/null` redirige les erreurs vers le néant. Cela évite les messages d'erreur si un conteneur ou le réseau n'existe pas encore — pratique pour une commande de nettoyage "à l'aveugle".
+
+#### Faut-il supprimer le volume PostgreSQL ?
+
+```bash
+docker volume rm match_prediction_pg_data
+```
+
+| Situation | Supprimer le volume ? |
+| :--- | :--- |
+| Premier lancement absolu | ❌ Inutile (n'existe pas encore) |
+| Repartir de zéro avec une base vierge | ✅ Oui |
+| Conserver les données de la session précédente | ❌ Non |
+
+### Étape 2 : Création du Réseau
 
 ```bash
 docker network create match-network
 ```
 
-### Étape B : Lancer la Base de Données
+### Étape 3 : Lancer la Base de Données
 
 ```bash
-# Lancement avec création automatique des deux bases (via script d'init)
+# Lancement via fichier d'environnement (Sécurisé)
 docker run -d \
   --name postgres-db \
   --network match-network \
   -v match_prediction_pg_data:/var/lib/postgresql/data \
   -v "$(pwd)/scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql" \
-  -e POSTGRES_USER=amaury \
-  -e POSTGRES_PASSWORD=password \
-  -e POSTGRES_DB=postgres \
+  --env-file .env.dev \
   -p 5432:5432 \
   postgres:15
 ```
 
-> [!NOTE]
-> Nous utilisons `POSTGRES_DB=postgres` comme base par défaut, et le script `init-db.sql` crée ensuite `footballapp_db` et `footballml_db`.
+> [!IMPORTANT]
+> **Fonctionnement de l'initialisation** : Le script `init-db.sql` ne s'exécute **que si le volume est neuf** (dossier `/var/lib/postgresql/data` vide). Si vous modifiez ce script, vous devez supprimer le volume (Étape 1) pour que les changements soient appliqués au prochain lancement.
 
-
-### Étape C : Lancer le Frontend (Choix de l'ENV)
+### Étape 4 : Lancer le Frontend (Choix de l'ENV)
 
 **En mode DEV (HTTP) :**
 
@@ -109,7 +145,7 @@ docker run -d \
   match-frontend
 ```
 
-### Étape D : Lancer les APIs
+### Étape 5 : Lancer les APIs
 
 Une fois le réseau, la base de données et le frontend prêts, lancez les services backend :
 
@@ -133,7 +169,7 @@ docker run -d \
   match-api-ml
 ```
 
-### Étape E : Initialisation des Données
+### Étape 6 : Initialisation des Données
 
 Une fois les services lancés, vous devez préparer la base de données :
 
@@ -154,11 +190,11 @@ curl -X POST http://localhost:8001/train
 
 ## 4. Choix Techniques & Mentalité DevOps
 
-1. **Entrypoint Dynamique** : Le frontend utilise un script `docker-entrypoint.sh` qui choisit entre `nginx.dev.conf` et `nginx.prod.conf` au moment du démarrage selon la valeur de `ENV`.
-2. **Attente de la Base de Données (Wait-for-DB)** : Les APIs utilisent `pg_isready` (via le paquet `postgresql-client`) dans leur `docker-entrypoint.sh`. Cela garantit que l'application ne tente pas de lancer les migrations Alembic avant que PostgreSQL ne soit totalement prêt à accepter des connexions.
-3. **Séparation des Secrets** : Les fichiers `.env.dev` et `.env.prod` permettent de ne pas mélanger les accès de test avec les accès sécurisés.
-4. **Zéro Suppression** : Toute la logique SSL a été conservée. Elle est simplement rendue conditionnelle pour faciliter les démos locales.
-5. **Idempotence** : Les scripts de démarrage nettoient les anciens conteneurs avant de relancer l'infra.
+* **Entrypoint Dynamique** : Le frontend utilise un script `docker-entrypoint.sh` qui choisit entre `nginx.dev.conf` et `nginx.prod.conf` au moment du démarrage selon la valeur de `ENV`.
+* **Attente de la Base de Données (Wait-for-DB)** : Les APIs utilisent `pg_isready` (via le paquet `postgresql-client`) dans leur `docker-entrypoint.sh`. Cela garantit que l'application ne tente pas de lancer les migrations Alembic avant que PostgreSQL ne soit totalement prêt à accepter des connexions.
+* **Séparation des Secrets** : Les fichiers `.env.dev` et `.env.prod` permettent de ne pas mélanger les accès de test avec les accès sécurisés.
+* **Zéro Suppression** : Toute la logique SSL a été conservée. Elle est simplement rendue conditionnelle pour faciliter les démos locales.
+* **Idempotence** : Les scripts de démarrage nettoient les anciens conteneurs avant de relancer l'infra.
 
 ---
 
@@ -186,7 +222,9 @@ docker rm frontend-vue api-app api-ml postgres-db
 docker network rm match-network
 ```
 
----
-
 > [!NOTE]
-> **Mentalité DevOps** : Ne jamais supprimer une configuration fonctionnelle, mais la rendre optionnelle ou configurable (Dev/Staging/Prod).
+> Si vous souhaitez également supprimer les données PostgreSQL pour repartir d'une base totalement vierge lors du prochain lancement :
+
+```bash
+docker volume rm match_prediction_pg_data
+```

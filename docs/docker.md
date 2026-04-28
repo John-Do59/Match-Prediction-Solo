@@ -1,139 +1,63 @@
-# Guide d'Apprentissage : Docker Sans Docker Compose
+# Guide d'Apprentissage : Docker Multi-Environnement
 
-Ce document explique le fonctionnement de Docker et détaille comment nous l'avons implémenté manuellement dans le projet **Match Prediction App** pour simuler une architecture micro-services professionnelle.
-
----
-
-## Introduction à Docker
-
-### C'est quoi ?
-
-Docker est une plateforme qui permet d'emballer une application et toutes ses dépendances (librairies, configuration, environnement) dans une unité isolée appelée **Conteneur**.
-
-### Pourquoi Docker ?
-
-- **"It works on my machine"** : Garanti que si ça tourne sur ton ordi, ça tournera partout (Serveur, Cloud, PC d'un collègue).
-- **Isolation** : Chaque micro-service vit dans sa propre boîte. Si l'API ML plante, elle ne fait pas tomber la base de données.
-- **Légèreté** : Contrairement à une machine virtuelle, Docker partage les ressources de ton ordinateur sans simuler tout un système d'exploitation.
-
-### Lexique Essentiel
-
-| Terme | Définition simple |
-| :--- | :--- |
-| **Image** | C'est le "plan" ou le moule. C'est un fichier statique qui contient ton code et tes réglages. |
-| **Conteneur** | C'est l'image en train de tourner. C'est l'instance vivante de ton application. |
-| **Dockerfile** | La recette de cuisine qui explique comment transformer ton code en image. |
-| **Volume** | Un disque dur persistant. Sert à garder les données (ex: ta BDD) même si le conteneur est supprimé. |
-| **Réseau (Network)** | Un câble invisible qui relie tes conteneurs entre eux (`match-network`). |
-| **Orchestration** | L'art de coordonner le démarrage et la communication entre plusieurs conteneurs. |
+Ce document explique le fonctionnement de Docker et détaille l'implémentation de l'architecture micro-services dans le projet **Match Prediction App**.
 
 ---
 
 ## Architecture du Projet
 
-Notre implémentation utilise une approche "Zero-Touch" : un seul script lance tout l'écosystème.
+Notre implémentation supporte deux environnements distincts pilotés par des scripts d'automatisation.
 
 ### Composants Clés
 
-1. **Frontend (Port 8082 / 8443)** : Interface utilisateur (Nginx + Vue.js) sécurisée par SSL.
+1. **Frontend (Port 8082 / 8443)** : Interface utilisateur (Nginx + Vue.js) sécurisée par SSL en production.
 2. **API App (Port 8000)** : Backend principal (FastAPI + PostgreSQL).
 3. **API ML (Port 8001)** : Intelligence Artificielle (FastAPI + Modèles Pré-entraînés).
-4. **PostgreSQL (Port 5432)** : Base de données relationnelle unique avec deux schémas (`footballapp_db` et `footballml_db`).
+4. **PostgreSQL (Port 5432)** : Base de données relationnelle unique.
 
 ### Volumes et Persistance
 
-- **postgres_data** : Stocke physiquement les fichiers de la base de données.
-- **ssl (local)** : Contient les certificats SSL auto-générés par `./scripts/generate_ssl.sh`, montés dans Nginx.
-
-### Le Module `shared/`
-
-Pour éviter la duplication de code, nous utilisons un dossier `shared/` à la racine :
-
-- Contient les **Common Settings** (Pydantic).
-- Est copié dynamiquement dans chaque conteneur lors du `docker build`.
-- **Astuce Technique** : Pour que les migrations Alembic puissent importer `shared`, nous avons modifié `alembic/env.py` pour ajouter le répertoire parent au `sys.path`.
+- **match_prediction_pg_data** : Volume Docker persistant pour les données PostgreSQL.
+- **ssl (local)** : Dossier contenant les certificats SSL, monté en lecture seule dans le frontend.
 
 ---
 
-## Pipeline de Données Automatisé (Python Seeding)
+## Gestion des Environnements (DEV vs PROD)
 
-Nous avons abandonné les anciens scripts SQL (`Data/*.sql`) pour un pipeline Python moderne et robuste.
+Le projet sépare strictement les configurations de développement et de production.
 
-### Avantages du Seeding via SQLAlchemy
+### Les fichiers d'environnement
 
-- **Idempotence** : Les scripts vérifient si la donnée existe déjà avant de l'insérer (pas de doublons).
-- **Flexibilité** : On peut utiliser des algorithmes complexes pour générer des données (ex: hashing de mots de passe, calculs ML).
-- **Maintenance** : Plus besoin de modifier 10 fichiers SQL quand le schéma change ; on utilise les modèles Python.
+| Fichier | Usage | Sécurité |
+| :--- | :--- | :--- |
+| `.env.dev` | Développement local | HTTP, ports standards |
+| `.env.prod` | Simulation Production | HTTPS obligatoire, secrets renforcés |
 
-### Déroulement de l'initialisation
-
-Au démarrage, le script d'orchestration :
-
-1. Lance les migrations **Alembic** pour créer les tables.
-2. Exécute `seed_teams.py` pour remplir les référentiels.
-3. Appelle l'API ML pour lancer l'**Ingestion** (CSV -> SQL) et l'**Entraînement** initial du modèle.
+**Sécurité des Secrets** : Les credentials (`POSTGRES_PASSWORD`) sont injectés via l'argument `--env-file` de Docker. Cela garantit qu'ils n'apparaissent jamais dans les logs de build ou l'inspection des conteneurs.
 
 ---
 
-## Orchestration Professionnelle avec Docker Compose
+## Guide d'Utilisation
 
-Bien que l'apprentissage manuel via des scripts Shell soit formateur, l'orchestration moderne repose sur **Docker Compose**. Cela permet de gérer tout l'écosystème avec une seule commande, tout en automatisant les tâches complexes.
+### 1. Mode Développement (Rapide)
 
-### Pourquoi utiliser Compose ?
-
-- **Simplicité** : `docker-compose up` remplace des centaines de lignes de scripts Shell.
-- **Résilience** : Gestion automatique des redémarrages et des dépendances.
-- **Réseau natif** : Les services communiquent via leurs noms (`db`, `api-app`, `api-ml`).
-- **Initialisation Intégrée** : La création des multiples bases de données et les migrations Alembic sont gérées automatiquement au démarrage.
-
----
-
-## Guide d'Utilisation (Nouveau Flux)
-
-### 1. Préparation
-
-Assurez-vous d'avoir votre fichier `.env` configuré (copiez `.env.example`). Les URLs doivent pointer vers les noms des services (ex: `db` au lieu de `localhost`).
-
-### 2. Lancer tout l'environnement
+Ce mode lance tout l'écosystème en HTTP pour faciliter le debug.
 
 ```bash
-docker-compose up --build
+./scripts/start-dev.sh
 ```
+*Accès : http://localhost:8082*
 
-*Cette commande unique :*
+### 2. Mode Production (Sécurisé)
 
-1. **Build** toutes les images (App, ML, Front).
-2. **Initialise** Postgres avec les bases `footballapp_db` et `footballml_db`.
-3. **Attend** que la DB soit prête.
-4. **Exécute** les migrations Alembic automatiquement.
-5. **Démarre** tous les services.
-
-### 3. Initialiser les données (Une seule fois)
-
-Une fois que tout tourne, lancez l'ingestion et l'entraînement initial :
+Ce mode simule un environnement de production avec HTTPS activé.
 
 ```bash
-# Ingestion des données (CSV -> SQL)
-curl -X POST http://localhost:8001/ingest
-
-# Entraînement du modèle
-curl -X POST http://localhost:8001/train
+./scripts/start-prod.sh
 ```
+*Accès : https://localhost:8443*
 
----
-
-## Ancienne Méthode (Orchestration Manuelle)
-
-Si vous souhaitez comprendre les coulisses de Docker sans l'abstraction de Compose, vous pouvez toujours utiliser les scripts manuels :
-
-### Lancer l'environnement manuel
-
-```bash
-chmod +x scripts/*.sh
-./scripts/run_docker_env.sh
-```
-
-### Nettoyer tout l'environnement
+### 3. Nettoyage
 
 ```bash
 ./scripts/docker_clean.sh
@@ -141,38 +65,23 @@ chmod +x scripts/*.sh
 
 ---
 
+## Bonnes Pratiques : Le fichier `.dockerignore`
+
+Le fichier `.dockerignore` est crucial pour la sécurité :
+
+1. **Isolation des Secrets** : Il empêche la copie des fichiers `.env.*` dans l'image. Les secrets sont fournis uniquement au runtime.
+2. **Performance** : Il ignore les dossiers lourds (`node_modules`, `.git`, `venv`) pour accélérer le build.
+3. **Persistance** : Les données volumineuses (datasets ML) ne sont pas incluses dans l'image mais montées via des volumes.
+
+---
+
 ## Résolution de Problèmes
 
 | Problème | Solution |
 | :--- | :--- |
-| **Port already in use** | Lancez `./scripts/docker_clean.sh` ou vérifiez avec `lsof -i :8000`. |
-| **Shared module not found** | Vérifiez que le `Dockerfile` copie bien le dossier `shared/` et que `env.py` a le bon `sys.path`. |
-| **Migration failed** | Vérifiez les logs avec `docker logs api-app`. Souvent dû à une DB non prête (le script attend désormais 5s). |
-| **HTTPX missing** | Si les tests ML échouent, assurez-vous que `httpx` est présent dans le `requirements.txt` de l'API ML. |
+| **Port already in use** | Lancez `./scripts/docker_clean.sh`. |
+| **Database not initialized** | Supprimez le volume : `docker volume rm match_prediction_pg_data`. |
+| **Frontend Crash (Alpine)** | Vérifiez que `docker-entrypoint.sh` utilise `#!/bin/sh`. |
 
 ---
-
-## Bonnes Pratiques : Le fichier `.dockerignore`
-
-Le fichier `.dockerignore` est crucial pour la santé de votre architecture micro-services. Il remplit trois rôles majeurs :
-
-### 1. Sécurité
-
-Il empêche la copie de fichiers sensibles comme le `.env` à l'intérieur de l'image. Les secrets doivent être passés via des variables d'environnement au runtime (ex: `--env-file .env`), et non stockés dans le système de fichiers de l'image.
-
-### 2. Performance (Build Speed)
-
-En ignorant les dossiers lourds comme `.git/`, `node_modules/` ou `Data/`, vous réduisez la taille du "build context" envoyé au démon Docker. Cela rend le build beaucoup plus rapide et réduit la taille finale des images.
-
-### 3. Intégrité des Migrations (Alembic)
-
-**Attention** : Il ne faut jamais ignorer les fichiers de migration (`alembic/versions/*.py`) individuellement. Alembic a besoin de toute la chaîne de fichiers pour fonctionner. Si vous n'en gardez qu'un seul (comme le HEAD), le conteneur ne pourra pas mettre à jour la base de données.
-
-### Stratégie pour les Données ML
-
-Pour l'API ML, nous avons choisi d'ignorer le dossier `Data/` dans l'image mais de le monter comme un **volume en lecture seule** (`-v "$(pwd)/Data:/app/Data:ro"`) lors du lancement du conteneur. Cela permet d'accéder aux datasets CSV sans alourdir l'image Docker.
-
----
-
-**Note sur Docker Compose** : En maîtrisant ces commandes manuelles, vous comprenez le "coeur" de Docker. Dans un vrai projet pro, on utiliserait Docker Compose pour simplifier, mais savoir le faire à la main fait de vous un expert.
-fait automatiquement. Tu peux maintenant utiliser ces scripts pour tester ton projet dans un environnement de production simulé sur ton Mac.
+*Dernière mise à jour : 28 Avril 2026*
