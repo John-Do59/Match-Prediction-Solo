@@ -29,6 +29,22 @@ Docker est une plateforme qui permet d'emballer une application et toutes ses d�
 
 ---
 
+## Cycle de Vie : Du Code au Conteneur
+
+Pour transformer ton code Python ou Vue.js en une application qui tourne, on suit deux étapes clés :
+
+### 1. La Construction (Build) -> L'Image
+On utilise la commande `docker build`. Docker lit ton **Dockerfile** (la recette) et crée une **Image** (le plat préparé mais pas encore servi).
+- **Analogy** : C'est comme compiler un programme ou imprimer un livre. L'image est figée.
+- **Commande type** : `docker build -t mon-image .`
+
+### 2. L'Exécution (Run) -> Le Conteneur
+On utilise la commande `docker run`. Docker prend l'image et la lance dans un environnement isolé. C'est à ce moment-là que l'application devient "vivante".
+- **Analogy** : C'est comme ouvrir le livre et commencer à le lire. Tu peux lancer plusieurs conteneurs (plusieurs lecteurs) à partir de la même image.
+- **Commande type** : `docker run -d mon-image`
+
+---
+
 ## Architecture du Projet
 
 Notre implémentation supporte deux environnements distincts pilotés par des scripts d'automatisation.
