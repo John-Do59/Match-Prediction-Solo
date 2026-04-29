@@ -1,128 +1,111 @@
-# Guide d'Apprentissage : Docker et Micro-services
+# Docker — Architecture & Bonnes Pratiques
 
-Ce document explique le fonctionnement de Docker et détaille l'implémentation de l'architecture micro-services dans le projet **Match Prediction App**.
+## Multi-Stage Builds
 
----
+Les 3 services utilisent des **builds multi-stage** pour produire des images légères et sécurisées.
 
-## Introduction à Docker
+### Principe
 
-### C'est quoi ?
+```
+Stage 1: builder (python:3.12-slim)
+  └─ Installe gcc, libpq-dev, pip packages
+  └─ Output: /install (packages compilés)
 
-Docker est une plateforme qui permet d'emballer une application et toutes ses dépendances (librairies, configuration, environnement) dans une unité isolée appelée **Conteneur**.
+Stage 2: runtime (python:3.12-slim)
+  └─ Copie uniquement /install depuis builder
+  └─ Installe seulement les libs runtime (libpq5)
+  └─ Lance l'application
+```
 
-### Pourquoi Docker ?
+**Résultat** : L'image finale ne contient **pas** `gcc`, `python3-dev`, ni les outils de compilation.
 
-- **"It works on my machine"** : Garanti que si ça tourne sur ton ordi, ça tournera partout (Serveur, Cloud, PC d'un collègue).
-- **Isolation** : Chaque micro-service vit dans sa propre boîte. Si l'API ML plante, elle ne fait pas tomber la base de données.
-- **Légèreté** : Contrairement à une machine virtuelle, Docker partage les ressources de ton ordinateur sans simuler tout un système d'exploitation.
+### Comparaison de taille
 
-### Lexique Essentiel
-
-| Terme | Définition simple |
-| :--- | :--- |
-| **Image** | C'est le "plan" ou le moule. C'est un fichier statique qui contient ton code et tes réglages. |
-| **Conteneur** | C'est l'image en train de tourner. C'est l'instance vivante de ton application. |
-| **Dockerfile** | La recette de cuisine qui explique comment transformer ton code en image. |
-| **Volume** | Un disque dur persistant. Sert à garder les données (ex: ta BDD) même si le conteneur est supprimé. |
-| **Réseau (Network)** | Un câble invisible qui relie tes conteneurs entre eux (`match-network`). |
-| **Orchestration** | L'art de coordonner le démarrage et la communication entre plusieurs conteneurs. |
-
----
-
-## Cycle de Vie : Du Code au Conteneur
-
-Pour transformer ton code Python ou Vue.js en une application qui tourne, on suit deux étapes clés :
-
-### 1. La Construction (Build) -> L'Image
-On utilise la commande `docker build`. Docker lit ton **Dockerfile** (la recette) et crée une **Image** (le plat préparé mais pas encore servi).
-- **Analogy** : C'est comme compiler un programme ou imprimer un livre. L'image est figée.
-- **Commande type** : `docker build -t mon-image .`
-
-### 2. L'Exécution (Run) -> Le Conteneur
-On utilise la commande `docker run`. Docker prend l'image et la lance dans un environnement isolé. C'est à ce moment-là que l'application devient "vivante".
-- **Analogy** : C'est comme ouvrir le livre et commencer à le lire. Tu peux lancer plusieurs conteneurs (plusieurs lecteurs) à partir de la même image.
-- **Commande type** : `docker run -d mon-image`
+| Image | Sans multi-stage | Avec multi-stage |
+| :--- | :---: | :---: |
+| `api-app` | ~800 MB | ~180 MB |
+| `api-ml` | ~1.2 GB | ~450 MB |
+| `frontend` | ~600 MB | ~25 MB |
 
 ---
 
-## Architecture du Projet
+## Optimisation du Cache Docker
 
-Notre implémentation supporte deux environnements distincts pilotés par des scripts d'automatisation.
+L'ordre des instructions dans le Dockerfile est **critique** pour le cache.
 
-### Composants Clés
+### Règle d'or : du moins fréquent au plus fréquent
 
-1. **Frontend (Port 8082 / 8443)** : Interface utilisateur (Nginx + Vue.js) sécurisée par SSL en production.
-2. **API App (Port 8000)** : Backend principal (FastAPI + PostgreSQL).
-3. **API ML (Port 8001)** : Intelligence Artificielle (FastAPI + Modèles Pré-entraînés).
-4. **PostgreSQL (Port 5432)** : Base de données relationnelle unique.
+```dockerfile
+# ✅ BON : requirements AVANT le code source
+COPY requirements.prod.txt .
+RUN pip install ...       ← layer caché si requirements ne change pas
 
-### Volumes et Persistance
+COPY FastAPI_App/ .       ← invalidé seulement si le code change
+```
 
-- **match_prediction_pg_data** : Volume Docker persistant pour les données PostgreSQL.
-- **ssl (local)** : Dossier contenant les certificats SSL, montés en lecture seule dans le frontend.
+```dockerfile
+# ❌ MAUVAIS : si le code est copié avant les deps
+COPY . .
+RUN pip install ...       ← recalculé à CHAQUE changement de code
+```
+
+Nos Dockerfiles respectent cette structure.
 
 ---
 
-## Gestion des Environnements (DEV vs PROD)
+## Sécurité — Utilisateur Non-Root
 
-Le projet sépare strictement les configurations de développement et de production.
+```dockerfile
+RUN adduser --disabled-password --gecos "" appuser \
+    && chown -R appuser:appuser /app
+USER appuser
+```
 
-### Les fichiers d'environnement
+**Pourquoi** : Si un attaquant compromet l'application via une faille, il obtient les droits `appuser` (non-root) et ne peut pas écrire hors de `/app`, ni accéder aux ressources système.
 
-| Fichier | Usage | Sécurité |
+---
+
+## Images de Base
+
+| Service | Image | Raison |
 | :--- | :--- | :--- |
-| `.env.dev` | Développement local | Simple, HTTP |
-| `.env.prod` | Simulation Production | Renforcée, HTTPS obligatoire |
+| `api-app` runtime | `python:3.12-slim` | Petite, sans outils inutiles |
+| `api-ml` runtime | `python:3.12-slim` | Idem |
+| `frontend` build | `node:18-alpine` | Alpine = ultra-léger |
+| `frontend` runtime | `nginx:stable-alpine` | ~25 MB, stable |
+| `gateway` (prod) | `traefik:v2.10` | Reverse proxy officiel |
 
-**Sécurité des Secrets** : Les credentials (`POSTGRES_PASSWORD`) sont injectés via l'argument `--env-file` de Docker. Cela garantit qu'ils n'apparaissent jamais dans les logs de build ou l'inspection des conteneurs.
+> **Ne jamais utiliser** `python:3.12` (full, ~900MB) en production.
 
 ---
 
-## Guide d'Utilisation
+## .dockerignore
 
-### 1. Mode Développement (Rapide)
+Le fichier `.dockerignore` exclut du contexte de build :
 
-Ce mode lance tout l'écosystème en HTTP pour faciliter le debug.
-
-```bash
-./scripts/start-dev.sh
 ```
-*Accès : http://localhost:8082*
-
-### 2. Mode Production (Sécurisé)
-
-Ce mode simule un environnement de production avec HTTPS activé.
-
-```bash
-./scripts/start-prod.sh
-```
-*Accès : https://localhost:8443*
-
-### 3. Nettoyage
-
-```bash
-./scripts/docker_clean.sh
+.git/
+**/__pycache__/
+**/*.pyc
+node_modules/
+*.log
+.env*           ← CRITIQUE : ne jamais envoyer les .env dans une image
+ssl/
 ```
 
 ---
 
-## Bonnes Pratiques : Le fichier `.dockerignore`
+## Healthchecks
 
-Le fichier `.dockerignore` est crucial pour la santé de votre architecture :
+Chaque service déclare un healthcheck pour que Docker sache quand il est réellement prêt.
 
-1. **Isolation des Secrets** : Il empêche la copie des fichiers `.env.*` dans l'image. Les secrets sont fournis uniquement au runtime.
-2. **Performance** : Il ignore les dossiers lourds (`node_modules`, `.git`, `venv`) pour accélérer le build.
-3. **Intégrité des Migrations (Alembic)** : Il ne faut jamais ignorer les fichiers de migration (`alembic/versions/`).
+```yaml
+healthcheck:
+  test: ["CMD", "pg_isready", "-U", "postgres", "-d", "footballapp_db"]
+  interval: 10s
+  timeout: 5s
+  retries: 5
+  start_period: 20s
+```
 
----
-
-## Résolution de Problèmes
-
-| Problème | Solution |
-| :--- | :--- |
-| **Port already in use** | Lancez `./scripts/docker_clean.sh`. |
-| **Database not initialized** | Supprimez le volume : `docker volume rm match_prediction_pg_data`. |
-| **Frontend Crash (Alpine)** | Vérifiez que `docker-entrypoint.sh` utilise `#!/bin/sh`. |
-
----
-*Dernière mise à jour : 28 Avril 2026*
+Les services dépendants (api-app, api-ml) utilisent `condition: service_healthy` pour démarrer **après** que la DB soit prête.

@@ -1,4 +1,4 @@
-name: Docker Build and Publish to GHCR
+name: Docker Build, Scan & Publish to GHCR
 
 on:
   push:
@@ -8,10 +8,10 @@ on:
   pull_request:
     branches:
       - develop
+      - main
 
 env:
   REGISTRY: ghcr.io
-  # On récupère automatiquement le nom du repo en minuscule pour éviter les erreurs Docker
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
@@ -20,6 +20,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write  # Requis pour upload Trivy SARIF
 
     strategy:
       matrix:
@@ -39,6 +40,8 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Log in to the Container registry
+        # On ne login que pour les pushs (pas les PRs)
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -60,14 +63,37 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push Docker image
+      - name: Build Docker image (et push si merge sur develop/main)
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          push: true
+          # On pousse uniquement sur push (pas sur PR)
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # Optimisation : Utilisation du cache GitHub Actions pour accélérer les builds futurs
+          # Cache GitHub Actions pour accélérer les builds
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Charger l'image localement pour le scan Trivy
+          load: ${{ github.event_name == 'pull_request' }}
+
+      # ─────────────────────────────────────────────
+      # 🔐 SÉCURITÉ : Scan de vulnérabilités avec Trivy
+      # ─────────────────────────────────────────────
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.image_suffix }}:${{ steps.meta.outputs.version }}
+          format: sarif
+          output: trivy-${{ matrix.image_suffix }}.sarif
+          # Stopper le build si une CVE CRITICAL est détectée
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      - name: Upload Trivy SARIF report to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()  # Uploader même si le scan a échoué
+        with:
+          sarif_file: trivy-${{ matrix.image_suffix }}.sarif

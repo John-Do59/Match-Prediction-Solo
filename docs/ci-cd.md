@@ -1,47 +1,93 @@
-# Planification : Pipeline CI/CD (Intégration & Déploiement Continus)
+# Pipeline CI/CD — Docker Build, Scan & Publish
 
-Ce document détaille la stratégie de CI/CD prévue pour automatiser la qualité, les tests et le déploiement du projet **Match Prediction App**.
+## Vue d'ensemble
 
----
+Le pipeline GitHub Actions automatise **4 étapes** à chaque push sur `develop` ou `main` :
 
-## 1. Objectifs de la CI/CD
-
-- **Détection Précoce** : Identifier les bugs dès qu'une ligne de code est poussée.
-- **Reproductibilité** : Garantir que les tests passent dans un environnement identique à la production.
-- **Automatisation** : Éliminer les erreurs humaines lors de la construction des images Docker.
-
----
-
-## 2. Le Workflow GitHub Actions (Prévu)
-
-Le pipeline sera déclenché à chaque `push` ou `Pull Request` sur les branches `develop` et `main`.
-
-### Étape 1 : Quality Gate (Linting & Style)
-- **Outil** : `flake8` ou `black`.
-- **But** : Vérifier que le code respecte les standards Python (PEP8).
-
-### Étape 2 : Automated Testing (Unit & Integration)
-- **Outil** : `pytest`.
-- **Mécanisme** : 
-  - Lancement d'un conteneur PostgreSQL éphémère.
-  - Exécution des migrations Alembic.
-  - Lancement des tests unitaires sur les APIs App et ML.
-
-### Étape 3 : Docker Build & Scan
-- **But** : Construire les images Docker des 3 services (App, ML, Front).
-- **Sécurité** : Utilisation de `Trivy` ou `Snyk` pour scanner les images à la recherche de vulnérabilités connues (CVE).
-
-### Étape 4 : Push to Registry (Optionnel)
-- **But** : Pousser les images validées vers GitHub Container Registry (GHCR) ou Docker Hub.
+```
+Push / PR
+    │
+    ▼
+① Checkout + Login GHCR
+    │
+    ▼
+② Build Multi-Stage (avec cache GHA)
+    │
+    ▼
+③ Scan Trivy (CVE CRITICAL/HIGH → bloque)
+    │
+    ▼
+④ Push vers GHCR (uniquement sur push, pas sur PR)
+```
 
 ---
 
-## 3. Avantages pour le Projet de Groupe
+## Déclencheurs
 
-L'implémentation de ce pipeline transforme votre workflow :
-- Plus besoin de se demander "Est-ce que ça marche chez toi ?". Si le pipeline est au vert, le projet est fonctionnel.
-- Sécurisation du code : Aucun code ne peut être fusionné sans avoir passé les tests.
+| Événement | Action |
+| :--- | :--- |
+| `push` sur `develop` | Build + Scan + **Push** vers GHCR |
+| `push` sur `main` | Build + Scan + **Push** vers GHCR + tag `latest` |
+| `pull_request` vers `develop`/`main` | Build + Scan (pas de push) |
 
 ---
 
-**Statut actuel** : En attente d'implémentation sur la branche `feat/cicd-pipeline`.
+## Services buildés
+
+Chaque service est buildé en parallèle via une **strategy matrix** :
+
+| Service | Dockerfile | Image GHCR |
+| :--- | :--- | :--- |
+| `api-app` | `FastAPI_App/Dockerfile` | `ghcr.io/<org>/<repo>/api-app` |
+| `api-ml` | `FastAPI_ML/Dockerfile` | `ghcr.io/<org>/<repo>/api-ml` |
+| `frontend` | `match_prediction_app-front/Dockerfile` | `ghcr.io/<org>/<repo>/frontend` |
+
+---
+
+## Optimisations Cache
+
+La pipeline utilise le **cache GitHub Actions** (`type=gha`) pour éviter de reconstruire les layers Docker identiques entre deux builds.
+
+```yaml
+cache-from: type=gha
+cache-to: type=gha,mode=max
+```
+
+- **`cache-from`** : Tente de récupérer les layers depuis le cache GHA.
+- **`cache-to: mode=max`** : Sauvegarde tous les layers intermédiaires (y compris le stage `builder`), pas seulement le final.
+
+**Impact concret** : Un re-build sans changement de dépendances passe de ~4min à ~30s.
+
+---
+
+## Sécurité — Scan Trivy
+
+Après chaque build, **Trivy** analyse l'image à la recherche de CVE (Common Vulnerabilities and Exposures).
+
+```yaml
+exit-code: '1'
+severity: 'CRITICAL,HIGH'
+ignore-unfixed: true
+```
+
+- Si une CVE **CRITICAL** ou **HIGH** est détectée ET qu'un patch existe → **le build est bloqué**.
+- `ignore-unfixed: true` évite les faux positifs pour les vulnérabilités sans correctif disponible.
+- Le rapport SARIF est uploadé dans l'onglet **Security → Code scanning** du repo GitHub.
+
+---
+
+## Tagging des Images
+
+| Contexte | Tag généré |
+| :--- | :--- |
+| Push sur `main` | `latest` + `sha-xxxxxxx` |
+| Push sur `develop` | `develop` + `sha-xxxxxxx` |
+| Pull Request | `pr-42` |
+| Tag Git `v1.2.3` | `1.2.3` |
+
+---
+
+## Prérequis
+
+- **Aucun secret à configurer manuellement** : Le token `GITHUB_TOKEN` est injecté automatiquement par GitHub Actions.
+- **Permissions** : Le workflow déclare `packages: write` et `security-events: write`.
