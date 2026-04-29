@@ -17,10 +17,32 @@ graph TD
 
 ---
 
+## Déclencheurs
+
+| Événement | Action |
+| :--- | :--- |
+| `push` sur `develop` | Build + Scan + **Push** vers GHCR |
+| `push` sur `main` | Build + Scan + **Push** vers GHCR + tag `latest` |
+| `pull_request` vers `develop`/`main` | Build + Scan (pas de push) |
+
+---
+
+## Services buildés
+
+Chaque service est buildé en parallèle via une **strategy matrix** :
+
+| Service | Dockerfile | Image GHCR |
+| :--- | :--- | :--- |
+| `api-app` | `FastAPI_App/Dockerfile` | `ghcr.io/<org>/<repo>/api-app` |
+| `api-ml` | `FastAPI_ML/Dockerfile` | `ghcr.io/<org>/<repo>/api-ml` |
+| `frontend` | `match_prediction_app-front/Dockerfile` | `ghcr.io/<org>/<repo>/frontend` |
+
+---
+
 ## Sécurité — Scan Trivy
 
-Après chaque build, **Trivy** analyse l'image.
-- Si une CVE **CRITICAL** ou **HIGH** est détectée → **le build échoue**.
+Après chaque build, **Trivy** analyse l'image à la recherche de CVE.
+- Si une CVE **CRITICAL** ou **HIGH** est détectée → **le build est bloqué**.
 - Le rapport est consultable dans l'onglet **Security** de GitHub.
 
 ---
@@ -31,25 +53,15 @@ Après chaque build, **Trivy** analyse l'image.
 **Symptôme** : Échec de la pipeline à l'étape `Upload SARIF` avec l'erreur `Path does not exist: trivy-api-app.sarif`.
 
 **Analyse** :
-L'incident s'est produit lors d'une synchronisation de branche (`git pull`) où le workflow a été écrasé par une version simplifiée ne contenant plus l'étape de scan Trivy, alors que l'étape d'upload était toujours présente.
+L'incident s'est produit lors d'une synchronisation de branche (`git pull`) où le workflow a été écrasé par une version simplifiée ne contenant plus l'étape de scan Trivy.
 
-**Action Corrective (Implémentée)** :
-1.  **Séquentialité forcée** : Le workflow a été restructuré pour garantir que le scan s'exécute *avant* l'upload.
-2.  **Permissions explicites** : Ajout de `security-events: write` dans les permissions du job.
-3.  **Build Local d'abord** : Utilisation de `load: true` dans `build-push-action` pour que l'image soit accessible localement au scanner Trivy avant d'être envoyée sur le registre.
+**Action Corrective** :
+- Restructuration du workflow (Build -> Scan -> Push).
+- Ajout de `security-events: write`.
+- Utilisation de `load: true` pour le scan local.
 
 ---
 
 ## Optimisations Cache
 
-La pipeline utilise le cache GitHub Actions (`type=gha`) pour réduire le temps de build de ~4min à ~30s.
-
----
-
-## Tagging des Images
-
-| Contexte | Tag généré |
-| :--- | :--- |
-| Push sur `main` | `latest` + `sha-xxxxxxx` |
-| Push sur `develop` | `develop` + `sha-xxxxxxx` |
-| Pull Request | `pr-XX` |
+La pipeline utilise le cache GitHub Actions (`type=gha`) pour réduire le temps de build (passage de ~4min à ~30s).

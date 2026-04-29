@@ -20,7 +20,7 @@ jobs:
     permissions:
       contents: read
       packages: write
-      security-events: write  # OBLIGATOIRE pour l'upload de scan de sécurité
+      security-events: write
 
     strategy:
       matrix:
@@ -66,7 +66,6 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          # On charge l'image localement pour permettre le scan Trivy
           load: true
           push: false 
           tags: ${{ steps.meta.outputs.tags }}
@@ -74,7 +73,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # 🔐 SCAN DE SÉCURITÉ
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
@@ -84,14 +82,12 @@ jobs:
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
 
-      # ⬆️ UPLOAD DU RAPPORT (v4)
       - name: Upload Trivy SARIF report to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: trivy-${{ matrix.image_suffix }}.sarif
 
-      # 🚀 PUSH FINAL (si pas de PR)
       - name: Push Docker image
         if: github.event_name != 'pull_request'
         uses: docker/build-push-action@v5
