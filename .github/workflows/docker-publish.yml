@@ -12,6 +12,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
+  # On force le nom de l'image en minuscules pour GHCR
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
@@ -47,11 +48,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Lowercase Image Name
+        run: |
+          echo "IMAGE_ID=$(echo ${{ env.IMAGE_NAME }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.image_suffix }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_ID }}/${{ matrix.image_suffix }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
@@ -76,7 +81,8 @@ jobs:
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/${{ matrix.image_suffix }}:${{ steps.meta.outputs.version }}
+          # On utilise le premier tag généré pour le scan
+          image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
           format: sarif
           output: trivy-${{ matrix.image_suffix }}.sarif
           severity: 'CRITICAL,HIGH'
