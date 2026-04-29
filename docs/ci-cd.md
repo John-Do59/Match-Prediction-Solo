@@ -62,6 +62,24 @@ L'incident s'est produit lors d'une synchronisation de branche (`git pull`) où 
 
 ---
 
+## 💡 Retour d'Expérience : Détection de CVE par Trivy (DoS Starlette & python-jose)
+
+**Date** : 30 Avril 2026
+**Symptôme** : Trivy a bloqué le pipeline en détectant deux vulnérabilités dans les dépendances Python :
+1. **CVE-2024-47874 (HIGH)** : Déni de service (DoS) via `multipart/form-data` dans `starlette` (version 0.38.6).
+2. **Vulnérabilité (CRITICAL)** : Faille potentielle d'injection d'algorithme dans `python-jose` (< 3.4.0).
+
+**Analyse** :
+Le scan SBOM de Trivy a correctement identifié que `fastapi==0.115.0` dépendait d'une version vulnérable de `starlette`. De plus, `python-jose` nécessitait une mise à jour de sécurité.
+
+**Action Corrective** :
+1. **Mise à jour des dépendances** : 
+   - `fastapi` mis à jour vers `0.115.6` (ce qui tire une version patchée de `starlette`).
+   - `python-jose` mis à jour vers `3.4.0` dans les fichiers `requirements.txt` et `requirements.prod.txt`.
+2. **Audit du code** : Vérification du code source confirmant que l'application FastAPI utilisait **déjà** explicitement `algorithms=[settings.ALGORITHM]` lors des appels `jwt.decode()`, la protégeant nativement contre l'attaque par confusion d'algorithme.
+
+---
+
 ## Optimisations Cache
 
 La pipeline utilise le cache GitHub Actions (`type=gha`) pour réduire le temps de build (passage de ~4min à ~30s).
