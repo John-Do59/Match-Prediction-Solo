@@ -18,6 +18,9 @@ RUN npm run build
 # Étape 2 : Serveur de production (Nginx)
 FROM nginx:stable-alpine AS production-stage
 
+# Mise à jour des paquets OS pour corriger les failles (nghttp2, xz, libxpm...)
+RUN apk upgrade --no-cache
+
 # Copie de la configuration Nginx unique
 COPY match_prediction_app-front/nginx.conf /etc/nginx/conf.d/default.conf
 
