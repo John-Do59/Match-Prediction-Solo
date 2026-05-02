@@ -108,7 +108,8 @@ docker exec api-ml pytest tests_ml/
 ## 📖 Documentation Complémentaire
 
 - **Docker** : Consultez [docs/docker.md](docs/docker.md) pour comprendre comment nous avons implémenté Docker sans Docker Compose.
-- **Sécurité et SSL** : Guide de mise à jour et passage en production disponible dans [docs/security_updates.md](docs/security_updates.md) et [docs/production_ssl.md](docs/production_ssl.md).
+- **CI/CD & Registre** : Pipeline automatisé avec GitHub Actions (Build, Push GHCR, Scans Trivy/CodeQL) détaillé dans [docs/ci-cd.md](docs/ci-cd.md).
+- **Sécurité et SSL** : Guide de mise à jour et passage en production (y compris la gestion des CVE) disponible dans [docs/security_updates.md](docs/security_updates.md) et [docs/production_ssl.md](docs/production_ssl.md).
 - **Historique du Projet** : Journal de bord et décisions techniques dans [docs/logbook.md](docs/logbook.md).
 - **Base de données** : Les schémas de référence sont disponibles dans `Data/MCD.sql` (ML) et `Data/MCD_app.sql` (App).
 - **Workflow Alembic** : Toute modification des modèles Python doit faire l'objet d'une migration via `alembic revision --autogenerate`.
