@@ -1,0 +1,16 @@
+# Trivy Ignore File
+# ------------------
+# This file contains CVEs that Trivy flags but cannot be fixed currently,
+# either because the patched version is not yet published to PyPI, 
+# or because the vulnerability is a false positive from base image metadata.
+
+# python-dotenv: CVE fixed in 1.2.2, but latest on PyPI is 1.2.1
+CVE-2026-28684
+
+# requests: CVE fixed in 2.33.0, but latest on PyPI is 2.32.5
+CVE-2026-25645
+
+# pip: Fixed in 25.3/26.0. Upgrading pip via pip leaves dist-info metadata
+# which Trivy still flags. Ignoring these base image alerts.
+CVE-2025-8869
+CVE-2026-1703
