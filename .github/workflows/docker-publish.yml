@@ -79,7 +79,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           # On utilise le premier tag généré pour le scan
           image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
@@ -89,7 +89,7 @@ jobs:
           ignore-unfixed: true
 
       - name: Upload Trivy SARIF report to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: trivy-${{ matrix.image_suffix }}.sarif
