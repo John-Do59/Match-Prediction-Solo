@@ -1,114 +1,103 @@
-# Architecture d'Orchestration : Docker Compose
+# Infrastructure Docker Compose (Profiles & Networks)
 
-Ce document détaille l'implémentation de Docker Compose dans le projet **Match Prediction App**, expliquant les choix d'architecture et le fonctionnement interne du système.
+## Architecture des Services
 
----
-
-## 1. Schéma Mental de l'Architecture
-
-Voici comment les services interagissent entre eux :
-
-```mermaid
-graph TD
-    User((Utilisateur)) -->|HTTPS/8443| Frontend[match-frontend]
-    Frontend -->|Proxy /api/v1| API_App[match-api-app]
-    Frontend -->|Proxy /ml/v1| API_ML[match-api-ml]
-    
-    API_App -->|SQL| DB_App[(match-db-app)]
-    API_App -->|HTTP| API_ML
-    
-    API_ML -->|SQL| DB_ML[(match-db-ml)]
-    API_ML -->|Volume| Data[./Data]
+```
+Internet
+    │
+    ▼
+┌─────────────────────────────────────────────────────────┐
+│                   frontend-network                       │
+│                                                          │
+│   [gateway / Traefik]  ←── PROD uniquement              │
+│           │                                              │
+│   [frontend-dev]  ←── DEV uniquement (port 8083)        │
+│   [frontend-prod] ←── PROD uniquement (via Traefik)     │
+│           │                                              │
+│   ┌───────┼───────┐                                     │
+│   │       │       │                                      │
+└───┼───────┼───────┼──────────────────────────────────────┘
+    │       │       │
+┌───┼───────┼───────┼──────────────────────────────────────┐
+│   │  backend-network  │                                   │
+│   ▼       ▼       ▼                                      │
+│ [api-app] [api-ml] (accès DB)                            │
+│     │         │                                           │
+│  [db-app]  [db-ml]  ←── DB ISOLÉES (pas de port exposé) │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 2. Philosophie : Database-per-service (Découplage)
+## Réseaux & Isolation
 
-Nous utilisons une approche **Database-per-service**. Chaque microservice possède sa propre instance PostgreSQL isolée.
-
-### Pourquoi ce choix ?
-
-- **Isolation des pannes** : Une saturation du service ML n'impacte pas l'authentification des utilisateurs.
-- **Maintenance Indépendante** : Possibilité de mettre à jour les versions de base de données séparément.
-- **Zéro Script Custom** : Pas besoin de scripts complexes pour créer plusieurs bases dans une seule instance.
-
----
-
-## 3. Pourquoi Docker Compose plutôt que des scripts Shell ?
-
-Passer de `run_docker_env.sh` à `docker-compose.yml` est une montée en gamme technique :
-
-| Caractéristique | Script Shell | Docker Compose |
+| Réseau | Services | Accès externe |
 | :--- | :--- | :--- |
-| **Paradigme** | Impératif (fait ceci, puis cela) | Déclaratif (voici l'état souhaité) |
-| **Gestion des erreurs** | Complexe et manuelle | Native (restarts, healthchecks) |
-| **Réseau** | Création manuelle requise | Réseau par défaut automatique |
-| **Idempotence** | Difficile à garantir | Native (ne recrée que ce qui a changé) |
-| **CI/CD** | Difficile à intégrer | Standard de l'industrie |
+| `frontend-network` | gateway, frontend, api-app, api-ml | Oui (via ports) |
+| `backend-network` | api-app, api-ml, db-app, db-ml | **Non** |
+
+> Les bases de données sont **invisibles** depuis l'extérieur. Seules les APIs peuvent y accéder via le réseau privé.
 
 ---
 
-## 4. Le Cycle de Démarrage (Orchestration Robuste)
+## Profils d'Utilisation (Environnements)
 
-### Healthchecks Postgres
+L'utilisation des **Docker Profiles** permet de basculer d'un environnement à l'autre proprement.
 
-Nous utilisons l'outil natif `pg_isready` pour garantir que Postgres est prêt :
+### 🛠️ Mode Développement (DEV)
+```bash
+cp .env.dev .env
+docker compose --profile dev up --build
+```
+Le frontend est exposé directement sur le port **8083**.
 
-```yaml
-healthcheck:
-  test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+### 🌍 Mode Production (PROD)
+```bash
+cp .env.prod .env
+docker compose --profile prod up --build
+```
+Le trafic passe par **Traefik** (SSL activé).
+
+---
+
+## Gestion des Données (Volumes)
+
+-   `postgres_app_data` : Données de l'API principale.
+-   `postgres_ml_data` : Données de l'API Machine Learning.
+
+Pour réinitialiser complètement les bases :
+```bash
+docker compose down -v
 ```
 
-### L'Entrypoint Intelligent (`docker-entrypoint.sh`)
+---
 
-Chaque API utilise un script de démarrage qui :
+## Gestion des Variables d'Environnement
 
-1. **Vérifie la disponibilité** : Utilise `pg_isready` pour attendre que SA base spécifique soit prête.
-2. **Auto-Migrations** : Lance `alembic upgrade head` avant le démarrage de l'application.
+Le `docker-compose.yml` lit automatiquement le fichier `.env` à la racine.
 
-### Healthchecks Applicatifs
-
-En plus des bases de données, les APIs disposent de leur propre monitoring Docker :
-
-- **Endpoint** : `/health`
-- **Mécanisme** : Docker exécute un `curl` toutes les 30 secondes. Si l'API ne répond plus (deadlock, crash), Docker le détecte et peut tenter une action de récupération.
+| Variable | Exemple | Usage |
+| :--- | :--- | :--- |
+| `DB_USER` | `myuser` | Utilisateur PostgreSQL |
+| `DB_PASSWORD` | `secret` | Mot de passe PostgreSQL |
+| `DB_NAME` | `footballapp_db` | Base de données API App |
+| `DB_ML_NAME` | `footballml_db` | Base de données API ML |
 
 ---
 
-## 5. Sécurité Inter-Services
+## Commandes Essentielles
 
-Dans une architecture pro, on ne laisse pas les APIs ouvertes, même en réseau interne.
+```bash
+# Voir les logs
+docker compose logs -f api-app
 
-- **Service Token** : Une clé partagée (`SERVICE_TOKEN`) est exigée par l'API ML pour chaque requête provenant de l'API App (via le header `X-Service-Token`).
-- **Isolation** : Cela garantit que seul votre backend légitime peut solliciter le moteur de prédiction.
-
----
-
-## 6. Réseautage et Communication
-
-### Résolution de noms
-
-Les services communiquent via leurs noms de services définis dans le Compose.
-Format de l'URL PostgreSQL :
-`postgresql://USER:PASSWORD@HOST:PORT/DB_NAME`
-
-*Exemple pour l'API App* : `postgresql://amaury:password@db-app:5432/footballapp_db`
-
-### Nginx en Reverse Proxy
-
-Le conteneur `frontend` joue le rôle de point d'entrée unique. Il gère la terminaison SSL et redirige les requêtes vers les bons backends, isolant ainsi les APIs du monde extérieur.
+# Lancer les migrations manuellement
+docker compose exec api-app alembic upgrade head
+```
 
 ---
 
-## 6. Commandes Utiles
+## Healthchecks & Dépendances
 
-| Action | Commande |
-| :--- | :--- |
-| **Démarrer tout** | `docker-compose up --build` |
-| **Arrêter tout** | `docker-compose down` |
-| **Réinitialiser les DB** | `docker-compose down -v` |
-
----
-
-**Conclusion** : Cette architecture transforme le projet en un système microservices crédible, aligné sur les meilleures pratiques d'infrastructure actuelles.
+Démarrage ordonné :
+`db-app (healthy) ──► api-app (healthy) ──► frontend`

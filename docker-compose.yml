@@ -1,36 +1,34 @@
 services:
   db-app:
     image: postgres:15
-    container_name: match-db-app
     restart: always
-    environment:
-      - POSTGRES_USER=${DB_USER:-amaury}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-password}
-      - POSTGRES_DB=${DB_NAME:-footballapp_db}
+    env_file: .env
+    # POSTGRES_USER, PASSWORD et DB sont déjà dans le .env
     volumes:
       - postgres_app_data:/var/lib/postgresql/data
-    ports:
-      - "5433:5432"
+    networks:
+      - backend-network
+    environment:
+      - POSTGRES_DB=${DB_NAME}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-amaury} -d ${DB_NAME:-footballapp_db}"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   db-ml:
     image: postgres:15
-    container_name: match-db-ml
     restart: always
-    environment:
-      - POSTGRES_USER=${DB_USER:-amaury}
-      - POSTGRES_PASSWORD=${DB_PASSWORD:-password}
-      - POSTGRES_DB=${DB_ML_NAME:-footballml_db}
+    env_file: .env
+    # POSTGRES_USER, PASSWORD et DB sont déjà dans le .env
     volumes:
       - postgres_ml_data:/var/lib/postgresql/data
-    ports:
-      - "5434:5432"
+    networks:
+      - backend-network
+    environment:
+      - POSTGRES_DB=${DB_ML_NAME}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-amaury} -d ${DB_ML_NAME:-footballml_db}"]
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -39,18 +37,17 @@ services:
     build:
       context: .
       dockerfile: FastAPI_App/Dockerfile
-    container_name: match-api-app
+    image: match-prediction-app:ultra-light
     depends_on:
       db-app:
         condition: service_healthy
     env_file: .env
     environment:
       - DB_HOST=db-app
-      - DB_USER=${DB_USER:-amaury}
-      - DB_NAME=${DB_NAME:-footballapp_db}
-      - DATABASE_URL=postgresql://${DB_USER:-amaury}:${DB_PASSWORD:-password}@db-app:5432/${DB_NAME:-footballapp_db}
       - ML_API_URL=http://api-ml:8001
-      - SERVICE_TOKEN=${SERVICE_TOKEN:-change-me-in-production}
+    networks:
+      - frontend-network
+      - backend-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -62,7 +59,7 @@ services:
     build:
       context: .
       dockerfile: FastAPI_ML/Dockerfile
-    container_name: match-api-ml
+    image: match-prediction-ml:ultra-light
     depends_on:
       db-ml:
         condition: service_healthy
@@ -71,10 +68,9 @@ services:
     env_file: .env
     environment:
       - DB_HOST=db-ml
-      - DB_USER=${DB_USER:-amaury}
-      - DB_NAME=${DB_ML_NAME:-footballml_db}
-      - DATABASE_ML_URL=postgresql://${DB_USER:-amaury}:${DB_PASSWORD:-password}@db-ml:5432/${DB_ML_NAME:-footballml_db}
-      - SERVICE_TOKEN=${SERVICE_TOKEN:-change-me-in-production}
+    networks:
+      - frontend-network
+      - backend-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
@@ -82,19 +78,67 @@ services:
       retries: 3
       start_period: 10s
 
-  frontend:
+  frontend-dev:
+    profiles: ["dev"]
     build:
       context: .
       dockerfile: match_prediction_app-front/Dockerfile
-    container_name: match-frontend
+    image: match-frontend:dev
     ports:
-      - "8082:8080"
-      - "8443:8443"
-    volumes:
-      - ./ssl:/etc/nginx/ssl:ro
+      - "8083:8080"
+    environment:
+      - ENV=dev
+    networks:
+      - frontend-network
     depends_on:
       - api-app
       - api-ml
+
+  gateway:
+    image: traefik:v2.10
+    profiles: ["prod"]
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080" # Dashboard Traefik
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - frontend-network
+
+  frontend-prod:
+    profiles: ["prod"]
+    build:
+      context: .
+      dockerfile: match_prediction_app-front/Dockerfile
+    image: match-frontend:prod
+    environment:
+      - ENV=prod
+    networks:
+      - frontend-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.frontend.rule=Host(`localhost`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls=true"
+      - "traefik.http.services.frontend.loadbalancer.server.port=8080"
+    depends_on:
+      - api-app
+      - api-ml
+
+networks:
+  frontend-network:
+    driver: bridge
+  backend-network:
+    driver: bridge
 
 volumes:
   postgres_app_data:

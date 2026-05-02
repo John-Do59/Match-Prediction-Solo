@@ -1,27 +1,16 @@
-# FastAPI Core
 fastapi==0.115.6
 uvicorn==0.30.0
 pydantic==2.9.2
 pydantic-settings==2.5.2
 python-dotenv==1.0.1
 python-multipart==0.0.22
-
-# Database
 SQLAlchemy==2.0.36
 alembic==1.13.3
-psycopg2-binary==2.9.10
-
-# Machine Learning & Data Science
+psycopg2==2.9.10
 pandas==2.2.3
 numpy==1.26.4
 scikit-learn==1.7.2
 scipy==1.15.3
 joblib==1.5.3
-
-# Utils
 httpx==0.27.0
 python-dateutil==2.9.0.post0
-
-# Testing
-pytest==8.3.3
-pytest-asyncio==0.24.0
