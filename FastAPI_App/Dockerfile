@@ -13,7 +13,8 @@ RUN apt-get update && apt-get install -y \
 # Installation des dépendances Python dans un dossier isolé (--prefix)
 # On utilise le fichier .prod pour exclure les outils de test
 COPY FastAPI_App/requirements.prod.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.prod.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --prefix=/install -r requirements.prod.txt
 
 
 # Stage 2: Final (Runtime)

@@ -12,7 +12,8 @@ RUN apt-get update && apt-get install -y \
 
 # Installation des dépendances Python (incluant pandas, sklearn, scipy)
 COPY FastAPI_ML/requirements.prod.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.prod.txt
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --prefix=/install -r requirements.prod.txt
 
 
 # Stage 2: Final (Runtime)
