@@ -77,4 +77,25 @@ Afin d'éviter que des credentials ne soient exposés dans l'historique des comm
 - **.dockerignore** : Les fichiers `.env`, `.env.dev` et `.env.prod` sont systématiquement ignorés lors du build. Les secrets ne sont **jamais** intégrés à l'image statique. Ils sont fournis dynamiquement au conteneur lors de son démarrage.
 
 ---
-*Dernière mise à jour : 28 Avril 2026*
+
+## Gestion des Vulnérabilités (CVE) et Scan Trivy
+
+### 1. Patching Actif des Dépendances
+
+Pour répondre aux alertes de sécurité remontées par le scan Trivy (intégré via GitHub Actions), plusieurs dépendances ont été mises à jour ou forcées à des versions sécurisées :
+
+- **FastAPI / Starlette** : Mise à jour pour corriger les failles de Déni de Service (DoS) (ex: CVE-2025-62727).
+- **Requests, PyASN1, Python-Multipart** : Mises à jour pour éviter les fuites d'informations et contournements de sécurité.
+- **Pip** : Mise à jour forcée de `pip` dans les images Python de base pour corriger les failles de path traversal.
+- **Alpine Linux** : Ajout d'une étape `apk upgrade --no-cache` dans le Dockerfile du frontend pour patcher les paquets OS de l'image Nginx (nghttp2, xz, libxpm).
+
+### 2. Gestion des Faux Positifs et Patchs Indisponibles
+
+Un fichier `.trivyignore` a été ajouté à la racine du projet. Ce fichier liste les CVE remontées par Trivy qui ne peuvent pas être corrigées dans l'immédiat, afin de maintenir une CI/CD saine et pertinente :
+
+- Vulnérabilités dont le correctif déclaré n'a pas encore été réellement publié sur les dépôts de paquets (PyPI).
+- Faux positifs liés aux métadonnées résiduelles des images de base Docker.
+
+---
+
+**Dernière mise à jour : 02 Mai 2026**
